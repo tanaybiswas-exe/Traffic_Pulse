@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrafficPulse: Live Central Command Hub</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'Chakra Petch', monospace; }
+    #publicMap { height: 530px; border-radius: 12px; }
+    .pulse-glow-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
+  </style>
+</head>
+<body class="bg-[#080B11] text-slate-100 min-h-screen p-3 md:p-5">
+
+  <div class="max-w-7xl mx-auto space-y-4">
+    
+    <!-- Top Header -->
+    <header class="flex flex-wrap justify-between items-center bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-xl">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/30">
+          <i class="fa-solid fa-truck-medical animate-bounce"></i>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-bold tracking-wide text-white flex items-center gap-2">
+            TrafficPulse BD <span class="text-[10px] bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded-full">REAL ENGINE</span>
+          </h1>
+          <p class="text-xs text-slate-400">Computer Vision + OpenStreetMap Intelligent Corridor Management</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mt-2 md:mt-0">
+        <a href="/driver" target="_blank" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow">
+          <i class="fa-solid fa-mobile-screen"></i> Open Driver Console
+        </a>
+        <div id="connBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+          <span id="connText" class="text-slate-300">Connecting...</span>
+        </div>
+        <div class="text-right mono text-emerald-400 font-bold text-sm tracking-wider" id="liveClock">00:00:00</div>
+      </div>
+    </header>
+
+    <!-- Metrics Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">CORRIDOR STATUS <i class="fa-solid fa-route text-emerald-400"></i></div>
+        <div id="corridorStatus" class="text-base font-bold text-slate-300">Standby</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">Automated Clearance Wave</div>
+      </div>
+
+      <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">AI CONFIDENCE <i class="fa-solid fa-microchip text-cyan-400"></i></div>
+        <div id="aiConfVal" class="text-base font-bold text-cyan-400 mono">98.4%</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">YOLOv8 Edge Vision</div>
+      </div>
+
+      <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">ESTIMATED TIME (ETA) <i class="fa-solid fa-stopwatch text-amber-400"></i></div>
+        <div id="etaVal" class="text-base font-bold text-amber-400 mono">-- min</div>
+        <div class="text-[11px] text-slate-500 mt-0.5 truncate" id="destText">Target: DMCH</div>
+      </div>
+
+      <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">LIVE SPEED <i class="fa-solid fa-gauge text-blue-400"></i></div>
+        <div id="speedVal" class="text-base font-bold text-blue-400 mono">0 km/h</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">Real Device Telemetry</div>
+      </div>
+    </div>
+
+    <!-- Alert Banner -->
+    <div id="alertBanner" class="hidden p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500 text-emerald-300 text-sm font-semibold flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-bell text-lg animate-pulse"></i>
+        <span id="alertText">Green corridor activated!</span>
+      </div>
+      <span class="text-xs bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded">Priority Clear</span>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Map 2 Cols -->
+      <div class="lg:col-span-2 bg-[#0F1522] border border-slate-800 p-3 rounded-2xl shadow-lg">
+        <div class="flex justify-between items-center mb-2 px-1">
+          <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Live Route & Intersection Telemetry
+          </span>
+          <span class="text-[11px] text-slate-400">OSRM Road Engine</span>
+        </div>
+        <div id="publicMap"></div>
+      </div>
+
+      <!-- Signals Control 1 Col -->
+      <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="text-sm font-bold text-slate-200 mb-3 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-traffic-light text-amber-400"></i> Active Intersections</span>
+            <span class="text-[10px] text-slate-400">Manual Override</span>
+          </div>
+
+          <div id="signalsContainer" class="space-y-2.5">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 space-y-1">
+          <div class="text-slate-300 font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-shield-halved text-cyan-400"></i> Police Sergeant Override
+          </div>
+          <p>YOLO auto-detect triggers the corridor. In special circumstances, click <b>Switch</b> on any junction to instantly clear or hold traffic.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const map = L.map('publicMap').setView([23.7460, 90.3940], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+    let ambMarker = null;
+    let destMarker = null;
+    let routePolyline = null;
+    let signalMarkers = {};
+
+    const ambIcon = L.divIcon({
+      html: `<div style="background-color: #ef4444; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px #ef4444; border: 2px solid white; font-size: 16px;">🚑</div>`,
+      className: '',
+      iconSize: [34, 34],
+      iconAnchor: [17, 17]
+    });
+
+    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const ws = new WebSocket(proto + window.location.host + '/ws/monitor');
+
+    ws.onopen = () => {
+      document.getElementById('connBadge').innerHTML = `
+        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span class="text-emerald-400 font-bold">ONLINE</span>
+      `;
+    };
+
+    function toggleSignal(id) {
+      ws.send(JSON.stringify({ action: "toggle_signal", id: id }));
+    }
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const amb = data.ambulance;
+
+      document.getElementById('liveClock').textContent = data.timestamp;
+      document.getElementById('speedVal').textContent = `${amb.speed} km/h`;
+      document.getElementById('etaVal').textContent = `~ ${amb.eta_mins} min`;
+      document.getElementById('aiConfVal').textContent = `${amb.ai_confidence}%`;
+      document.getElementById('destText').textContent = `Target: ${amb.destination}`;
+
+      const corridorEl = document.getElementById('corridorStatus');
+      if (amb.active_corridor) {
+        corridorEl.textContent = "GREEN CORRIDOR ENGAGED";
+        corridorEl.className = "text-base font-bold text-emerald-400";
+      } else {
+        corridorEl.textContent = amb.is_live ? "Live Tracking" : "Standby";
+        corridorEl.className = "text-base font-bold text-slate-300";
+      }
+
+      const ambPos = [amb.lat, amb.lon];
+      if (!ambMarker) {
+        ambMarker = L.marker(ambPos, { icon: ambIcon }).addTo(map).bindPopup("<b>Emergency Ambulance</b>");
+      } else {
+        ambMarker.setLatLng(ambPos);
+      }
+
+      if (amb.dest_lat && amb.dest_lon) {
+        const destPos = [amb.dest_lat, amb.dest_lon];
+        if (!destMarker) {
+          destMarker = L.marker(destPos).addTo(map).bindPopup(`<b>${amb.destination}</b>`);
+        } else {
+          destMarker.setLatLng(destPos);
+        }
+      }
+
+      if (amb.route_coords && amb.route_coords.length > 0) {
+        if (routePolyline) map.removeLayer(routePolyline);
+        routePolyline = L.polyline(amb.route_coords, { color: '#10b981', weight: 6, opacity: 0.85 }).addTo(map);
+      }
+
+      const container = document.getElementById('signalsContainer');
+      container.innerHTML = '';
+
+      for (const [id, item] of Object.entries(data.intersections)) {
+        const isGreen = item.signal === "GREEN";
+
+        if (!signalMarkers[id]) {
+          signalMarkers[id] = L.circleMarker([item.lat, item.lon], {
+            radius: 11,
+            fillColor: isGreen ? '#10b981' : '#ef4444',
+            color: '#fff',
+            weight: 2,
+            fillOpacity: 0.9
+          }).addTo(map).bindPopup(`<b>${item.name}</b>`);
+        } else {
+          signalMarkers[id].setStyle({
+            fillColor: isGreen ? '#10b981' : '#ef4444'
+          });
+        }
+
+        container.innerHTML += `
+          <div class="p-2.5 rounded-xl border ${isGreen ? 'bg-emerald-950/40 border-emerald-500 pulse-glow-green' : 'bg-slate-900 border-slate-800'} transition-all">
+            <div class="flex items-center justify-between mb-1.5">
+              <div>
+                <div class="text-xs font-semibold text-slate-200">${item.name}</div>
+                <div class="text-[10px] text-slate-400">Density: ${item.traffic_density}</div>
+              </div>
+              <span class="px-2 py-0.5 text-[10px] font-bold rounded ${isGreen ? 'bg-emerald-500 text-slate-950 animate-pulse' : 'bg-red-500/20 text-red-400'}">
+                ${item.signal}
+              </span>
+            </div>
+            <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-[11px]">
+              <span class="${isGreen ? 'text-emerald-400 font-bold' : 'text-slate-500'}">
+                ${isGreen ? '✓ Clear Wave' : 'Normal Flow'}
+              </span>
+              <button onclick="toggleSignal('${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] border border-slate-700 flex items-center gap-1 transition">
+                <i class="fa-solid fa-power-off text-amber-400 text-[9px]"></i> Switch
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      const alertBox = document.getElementById('alertBanner');
+      const alertText = document.getElementById('alertText');
+      if (data.alert) {
+        alertText.textContent = data.alert;
+        alertBox.classList.remove('hidden');
+      } else {
+        alertBox.classList.add('hidden');
+      }
+    };
+  </script>
+</body>
+</html>
