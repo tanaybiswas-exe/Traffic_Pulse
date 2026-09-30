@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrafficPulse: Live Central Command Hub</title>
+  <title>TrafficPulse BD - সেন্ট্রাল কন্ট্রোল ড্যাশবোর্ড</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
@@ -11,18 +11,18 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hind+Siliguri:wght@400;600;700&display=swap');
+    body { font-family: 'Hind Siliguri', sans-serif; }
     .mono { font-family: 'Chakra Petch', monospace; }
-    #publicMap { height: 530px; border-radius: 12px; }
-    .pulse-glow-green { box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); }
+    #publicMap { height: 540px; border-radius: 14px; }
+    .pulse-glow-green { box-shadow: 0 0 16px rgba(16, 185, 129, 0.6); }
   </style>
 </head>
 <body class="bg-[#080B11] text-slate-100 min-h-screen p-3 md:p-5">
 
   <div class="max-w-7xl mx-auto space-y-4">
     
-    <!-- Top Header -->
+    <!-- হেডার -->
     <header class="flex flex-wrap justify-between items-center bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-xl">
       <div class="flex items-center gap-3">
         <div class="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/30">
@@ -30,94 +30,97 @@
         </div>
         <div>
           <h1 class="text-xl md:text-2xl font-bold tracking-wide text-white flex items-center gap-2">
-            TrafficPulse BD <span class="text-[10px] bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded-full">REAL ENGINE</span>
+            TrafficPulse বাংলাদেশ <span class="text-[10px] bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded-full">স্মার্ট লাইভ করিডোর</span>
           </h1>
-          <p class="text-xs text-slate-400">Computer Vision + OpenStreetMap Intelligent Corridor Management</p>
+          <p class="text-xs text-slate-400">কম্পিউটার ভিশন ও ওপেন ডেটা ভিত্তিক ট্রাফিক সিগন্যাল অটোমেশন</p>
         </div>
       </div>
 
       <div class="flex items-center gap-3 mt-2 md:mt-0">
         <a href="/driver" target="_blank" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow">
-          <i class="fa-solid fa-mobile-screen"></i> Open Driver Console
+          <i class="fa-solid fa-mobile-screen"></i> ড্রাইভার স্ক্রিন খুলুন
         </a>
         <div id="connBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
           <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-          <span id="connText" class="text-slate-300">Connecting...</span>
+          <span id="connText" class="text-slate-300">কানেক্টিং...</span>
         </div>
         <div class="text-right mono text-emerald-400 font-bold text-sm tracking-wider" id="liveClock">00:00:00</div>
       </div>
     </header>
 
-    <!-- Metrics Cards -->
+    <!-- স্ট্যাটাস কার্ডস -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">CORRIDOR STATUS <i class="fa-solid fa-route text-emerald-400"></i></div>
-        <div id="corridorStatus" class="text-base font-bold text-slate-300">Standby</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">Automated Clearance Wave</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">করিডোর অবস্থা <i class="fa-solid fa-route text-emerald-400"></i></div>
+        <div id="corridorStatus" class="text-base font-bold text-slate-300">স্ট্যান্ডবাই</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">স্বয়ংক্রিয় সিগন্যাল ক্লিয়ারেন্স</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">AI CONFIDENCE <i class="fa-solid fa-microchip text-cyan-400"></i></div>
-        <div id="aiConfVal" class="text-base font-bold text-cyan-400 mono">98.4%</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">YOLOv8 Edge Vision</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">রোড ট্রাফিক অবস্থা <i class="fa-solid fa-traffic-light text-cyan-400"></i></div>
+        <div id="trafficStatusVal" class="text-base font-bold text-cyan-400">স্বাভাবিক ফ্লো</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">রিয়েল-টাইম কনজেশন</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">ESTIMATED TIME (ETA) <i class="fa-solid fa-stopwatch text-amber-400"></i></div>
-        <div id="etaVal" class="text-base font-bold text-amber-400 mono">-- min</div>
-        <div class="text-[11px] text-slate-500 mt-0.5 truncate" id="destText">Target: DMCH</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">আনুমানিক সময় (ETA) <i class="fa-solid fa-stopwatch text-amber-400"></i></div>
+        <div id="etaVal" class="text-base font-bold text-amber-400 mono">-- মিনিট</div>
+        <div class="text-[11px] text-slate-500 mt-0.5 truncate" id="destText">গন্তব্য: DMCH</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">LIVE SPEED <i class="fa-solid fa-gauge text-blue-400"></i></div>
-        <div id="speedVal" class="text-base font-bold text-blue-400 mono">0 km/h</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">Real Device Telemetry</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">লাইভ গতি (Speed) <i class="fa-solid fa-gauge text-blue-400"></i></div>
+        <div id="speedVal" class="text-base font-bold text-blue-400 mono">০ কিমি/ঘণ্টা</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">ডিভাইস সেন্সর টেলিমেট্রি</div>
       </div>
     </div>
 
-    <!-- Alert Banner -->
+    <!-- লাইভ অ্যালার্ট ব্যানার -->
     <div id="alertBanner" class="hidden p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500 text-emerald-300 text-sm font-semibold flex items-center justify-between">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-bell text-lg animate-pulse"></i>
-        <span id="alertText">Green corridor activated!</span>
+        <span id="alertText">জরুরি গ্রিন করিডোর সক্রিয় করা হয়েছে!</span>
       </div>
-      <span class="text-xs bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded">Priority Clear</span>
+      <span class="text-xs bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded">অগ্রাধিকার ক্লিয়ারেন্স</span>
     </div>
 
-    <!-- Main Grid -->
+    <!-- মূল গ্রিড -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Map 2 Cols -->
+      
+      <!-- ম্যাপ সেকশন (২ কলাম) -->
       <div class="lg:col-span-2 bg-[#0F1522] border border-slate-800 p-3 rounded-2xl shadow-lg">
         <div class="flex justify-between items-center mb-2 px-1">
           <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Live Route & Intersection Telemetry
+            <i class="fa-solid fa-map-location-dot text-emerald-400"></i> লাইভ রোড করিডোর ও সিগন্যাল ম্যাপ
           </span>
-          <span class="text-[11px] text-slate-400">OSRM Road Engine</span>
+          <span class="text-[11px] text-slate-400">OSRM লাইভ টার্ন-বাই-টার্ন</span>
         </div>
         <div id="publicMap"></div>
       </div>
 
-      <!-- Signals Control 1 Col -->
+      <!-- সিগন্যাল ও সার্জেন্ট কন্ট্রোল (১ কলাম) -->
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
         <div>
           <div class="text-sm font-bold text-slate-200 mb-3 flex items-center justify-between">
-            <span class="flex items-center gap-2"><i class="fa-solid fa-traffic-light text-amber-400"></i> Active Intersections</span>
-            <span class="text-[10px] text-slate-400">Manual Override</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-traffic-light text-amber-400"></i> সক্রিয় সিগন্যালসমূহ</span>
+            <span class="text-[10px] text-slate-400">ম্যানুয়াল সুইচ</span>
           </div>
 
           <div id="signalsContainer" class="space-y-2.5">
-            <!-- Injected dynamically -->
+            <!-- ডাইনামিক ইন্টারসেকশন লোড হবে -->
           </div>
         </div>
 
         <div class="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 space-y-1">
           <div class="text-slate-300 font-semibold flex items-center gap-1">
-            <i class="fa-solid fa-shield-halved text-cyan-400"></i> Police Sergeant Override
+            <i class="fa-solid fa-shield-halved text-cyan-400"></i> ট্রাফিক সার্জেন্ট জরুরি কন্ট্রোল
           </div>
-          <p>YOLO auto-detect triggers the corridor. In special circumstances, click <b>Switch</b> on any junction to instantly clear or hold traffic.</p>
+          <p>অ্যাম্বুলেন্স পৌঁছালে সংকেত স্বয়ংক্রিয়ভাবে সবুজ হয়। সার্জেন্ট প্রয়োজনে <b>সুইচ</b> বাটনে চাপ দিয়ে তাৎক্ষণিক লাইট পরিবর্তন করতে পারেন।</p>
         </div>
       </div>
+
     </div>
+
   </div>
 
   <script>
@@ -142,7 +145,7 @@
     ws.onopen = () => {
       document.getElementById('connBadge').innerHTML = `
         <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span class="text-emerald-400 font-bold">ONLINE</span>
+        <span class="text-emerald-400 font-bold">অনলাইন</span>
       `;
     };
 
@@ -155,23 +158,23 @@
       const amb = data.ambulance;
 
       document.getElementById('liveClock').textContent = data.timestamp;
-      document.getElementById('speedVal').textContent = `${amb.speed} km/h`;
-      document.getElementById('etaVal').textContent = `~ ${amb.eta_mins} min`;
-      document.getElementById('aiConfVal').textContent = `${amb.ai_confidence}%`;
-      document.getElementById('destText').textContent = `Target: ${amb.destination}`;
+      document.getElementById('speedVal').textContent = `${amb.speed} কিমি/ঘণ্টা`;
+      document.getElementById('etaVal').textContent = `~ ${amb.eta_mins} মিনিট`;
+      document.getElementById('trafficStatusVal').textContent = amb.traffic_status;
+      document.getElementById('destText').textContent = `গন্তব্য: ${amb.destination}`;
 
       const corridorEl = document.getElementById('corridorStatus');
       if (amb.active_corridor) {
-        corridorEl.textContent = "GREEN CORRIDOR ENGAGED";
+        corridorEl.textContent = "🟢 গ্রিন করিডোর সক্রিয়";
         corridorEl.className = "text-base font-bold text-emerald-400";
       } else {
-        corridorEl.textContent = amb.is_live ? "Live Tracking" : "Standby";
+        corridorEl.textContent = amb.is_live ? "লাইভ ট্র্যাকিং চলছে" : "স্ট্যান্ডবাই";
         corridorEl.className = "text-base font-bold text-slate-300";
       }
 
       const ambPos = [amb.lat, amb.lon];
       if (!ambMarker) {
-        ambMarker = L.marker(ambPos, { icon: ambIcon }).addTo(map).bindPopup("<b>Emergency Ambulance</b>");
+        ambMarker = L.marker(ambPos, { icon: ambIcon }).addTo(map).bindPopup("<b>জরুরি অ্যাম্বুলেন্স</b>");
       } else {
         ambMarker.setLatLng(ambPos);
       }
@@ -215,7 +218,7 @@
             <div class="flex items-center justify-between mb-1.5">
               <div>
                 <div class="text-xs font-semibold text-slate-200">${item.name}</div>
-                <div class="text-[10px] text-slate-400">Density: ${item.traffic_density}</div>
+                <div class="text-[10px] text-slate-400">ট্রাফিক চাপ: ${item.traffic_density}</div>
               </div>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded ${isGreen ? 'bg-emerald-500 text-slate-950 animate-pulse' : 'bg-red-500/20 text-red-400'}">
                 ${item.signal}
@@ -223,10 +226,10 @@
             </div>
             <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-[11px]">
               <span class="${isGreen ? 'text-emerald-400 font-bold' : 'text-slate-500'}">
-                ${isGreen ? '✓ Clear Wave' : 'Normal Flow'}
+                ${isGreen ? '✓ ক্লিয়ার করা হয়েছে' : 'স্বাভাবিক ফ্লো'}
               </span>
               <button onclick="toggleSignal('${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] border border-slate-700 flex items-center gap-1 transition">
-                <i class="fa-solid fa-power-off text-amber-400 text-[9px]"></i> Switch
+                <i class="fa-solid fa-power-off text-amber-400 text-[9px]"></i> সুইচ
               </button>
             </div>
           </div>
