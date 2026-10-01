@@ -15,7 +15,6 @@ connected_sergeants = set()
 connected_civilians = set()
 active_ambulances = {}
 incident_logs = []
-traffic_nodes = {}
 
 TOMTOM_KEY = "7YuULGQHeO6wW1GkYYP6dqSu84Wn2TPb"
 
@@ -24,6 +23,52 @@ CONDITION_SCORES = {
     "Neuro": 85,
     "Trauma": 70,
     "General": 40
+}
+
+# ডিফল্ট নোড যাতে ড্রাইভার অফলাইনে থাকলেও সিভিলিয়ান ও মনিটরে বিলবোর্ড সর্বদা দৃশ্যমান থাকে
+traffic_nodes = {
+    "NODE_01": {
+        "id": "NODE_01",
+        "name": "শাহবাগ সেন্ট্রাল ইন্টারসেকশন",
+        "lat": 23.7383,
+        "lon": 90.3956,
+        "signal": "RED",
+        "corridor_active": False,
+        "granted_unit": None,
+        "speed": 32,
+        "status": "Operational Flow",
+        "clearance_sec": 0,
+        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
+        "violations": []
+    },
+    "NODE_02": {
+        "id": "NODE_02",
+        "name": "কারওয়ান বাজার এক্সপ্রেসওয়ে জংশন",
+        "lat": 23.7508,
+        "lon": 90.3935,
+        "signal": "RED",
+        "corridor_active": False,
+        "granted_unit": None,
+        "speed": 28,
+        "status": "Operational Flow",
+        "clearance_sec": 0,
+        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
+        "violations": []
+    },
+    "NODE_03": {
+        "id": "NODE_03",
+        "name": "ফার্মগেট ট্রাফিক করিডোর",
+        "lat": 23.7570,
+        "lon": 90.3888,
+        "signal": "RED",
+        "corridor_active": False,
+        "granted_unit": None,
+        "speed": 35,
+        "status": "Optimal Flow",
+        "clearance_sec": 0,
+        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
+        "violations": []
+    }
 }
 
 def get_live_traffic_flow(lat, lon):
@@ -64,7 +109,7 @@ def query_osm_intersections(lat, lon):
             elements = data.get("elements", [])
             for idx, el in enumerate(elements):
                 n_id = f"NODE_{el.get('id', idx+1)}"
-                name = el.get("tags", {}).get("name") or f"Intersection Node {idx+1}"
+                name = el.get("tags", {}).get("name") or f"ইন্টারসেকশন মোড় #{idx+1}"
                 n_lat = el.get("lat")
                 n_lon = el.get("lon")
                 cur_spd, free_spd, flow_status, flow_color = get_live_traffic_flow(n_lat, n_lon)
@@ -87,9 +132,9 @@ def query_osm_intersections(lat, lon):
 
     if not nodes:
         offsets = [
-            ("Central Junction 01", 0.005, 0.004),
-            ("Corridor Crossway 02", -0.004, 0.006),
-            ("Outer Bypass Junction 03", 0.007, -0.005)
+            ("নিকটস্থ মোড় ০১ (মেইন রোড)", 0.005, 0.004),
+            ("ট্রাফিক ইন্টারসেকশন ০২", -0.004, 0.006),
+            ("বাইপাস ক্রসিং ০৩", 0.007, -0.005)
         ]
         for idx, (label, dy, dx) in enumerate(offsets):
             n_id = f"NODE_L_{idx+1}"
@@ -102,7 +147,7 @@ def query_osm_intersections(lat, lon):
                 "corridor_active": False,
                 "granted_unit": None,
                 "speed": 28,
-                "status": "Operational",
+                "status": "Operational Flow",
                 "clearance_sec": 0,
                 "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
                 "violations": []
@@ -149,9 +194,9 @@ def query_osm_hospitals(lat, lon, condition="General"):
 
     if not hospitals:
         hospitals = [
-            {"id": "H1", "name": "General Emergency & Trauma Center", "lat": round(lat + 0.012, 5), "lon": round(lon + 0.010, 5), "dist_km": 1.8, "icu": 5, "er": 12, "match": True},
-            {"id": "H2", "name": "Specialized Cardiac Care Facility", "lat": round(lat - 0.015, 5), "lon": round(lon + 0.012, 5), "dist_km": 2.4, "icu": 3, "er": 8, "match": True},
-            {"id": "H3", "name": "Metro District Healthcare Complex", "lat": round(lat + 0.020, 5), "lon": round(lon - 0.014, 5), "dist_km": 3.1, "icu": 6, "er": 15, "match": True}
+            {"id": "H1", "name": "জেনারেল ইমার্জেন্সি ও ট্রমা কেয়ার", "lat": round(lat + 0.012, 5), "lon": round(lon + 0.010, 5), "dist_km": 1.8, "icu": 5, "er": 12, "match": True},
+            {"id": "H2", "name": "স্পেশালাইজড কার্ডিয়াক কেয়ার সেন্টার", "lat": round(lat - 0.015, 5), "lon": round(lon + 0.012, 5), "dist_km": 2.4, "icu": 3, "er": 8, "match": True},
+            {"id": "H3", "name": "সেন্ট্রাল মেডিকেল কলেজ ও হাসপাতাল", "lat": round(lat + 0.020, 5), "lon": round(lon - 0.014, 5), "dist_km": 3.1, "icu": 6, "er": 15, "match": True}
         ]
     return hospitals
 
@@ -170,7 +215,7 @@ def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
                 nav = []
                 for leg in r.get("legs", []):
                     for step in leg.get("steps", [])[:4]:
-                        name = step.get("name") or "Continue along current road"
+                        name = step.get("name") or "সোজা এগিয়ে চলুন"
                         dist_m = round(step.get("distance", 0))
                         nav.append(f"{name} ({dist_m}m)")
                 return dist_km, eta_mins, coords, nav
@@ -178,7 +223,7 @@ def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
         pass
 
     dist = round(math.hypot((start_lat - end_lat) * 111, (start_lon - end_lon) * 111), 2)
-    return dist, max(1, round(dist * 2.4)), [[start_lat, start_lon], [end_lat, end_lon]], ["Proceed along navigation line"]
+    return dist, max(1, round(dist * 2.4)), [[start_lat, start_lon], [end_lat, end_lon]], ["নেভিগেশন লাইন অনুসরণ করুন"]
 
 async def broadcast_status(payload: dict):
     msg = json.dumps(payload)
@@ -238,7 +283,7 @@ async def monitor_socket(ws: WebSocket):
                         "ambulances": active_ambulances,
                         "intersections": traffic_nodes,
                         "incident_logs": incident_logs[-6:],
-                        "alert": f"Manual Override Executed: Node {traffic_nodes[t_id]['name']}"
+                        "alert": f"ম্যানুয়াল সিগন্যাল সুইচ: {traffic_nodes[t_id]['name']}"
                     })
     except WebSocketDisconnect:
         connected_monitors.discard(ws)
@@ -262,6 +307,7 @@ async def sergeant_socket(ws: WebSocket):
 async def civilian_socket(ws: WebSocket):
     await ws.accept()
     connected_civilians.add(ws)
+    # কানেক্ট হওয়ার সাথে সাথে বর্তমান ট্রাফিক নোড এবং সাইনবোর্ড পাঠিয়ে দেওয়া
     await ws.send_text(json.dumps({
         "timestamp": datetime.now().strftime("%H:%M:%S"),
         "ambulances": active_ambulances,
@@ -291,14 +337,14 @@ async def driver_socket(ws: WebSocket):
             sos = bool(data.get("sos_active", False))
 
             global traffic_nodes
-            if not traffic_nodes or data.get("refresh_nodes"):
+            if data.get("refresh_nodes"):
                 traffic_nodes = query_osm_intersections(lat, lon)
 
             hospitals = query_osm_hospitals(lat, lon, condition)
 
             dest_lat = float(data.get("dest_lat") or (hospitals[0]["lat"] if hospitals else lat + 0.01))
             dest_lon = float(data.get("dest_lon") or (hospitals[0]["lon"] if hospitals else lon + 0.01))
-            dest_name = data.get("destination") or (hospitals[0]["name"] if hospitals else "Regional Medical Center")
+            dest_name = data.get("destination") or (hospitals[0]["name"] if hospitals else "নিকটস্থ হাসপাতাল")
 
             dist_km, eta, coords, nav_steps = get_osrm_driving_path(lat, lon, dest_lat, dest_lon)
             cur_spd, free_spd, flow_status, flow_color = get_live_traffic_flow(lat, lon)
@@ -306,7 +352,7 @@ async def driver_socket(ws: WebSocket):
             flyover_advisory = False
             if flow_color == "RED" or cur_spd < 15:
                 flyover_advisory = True
-                nav_steps.insert(0, "Surface corridor saturated. Elevated bypass recommended.")
+                nav_steps.insert(0, "রাস্তায় তীব্র জ্যাম! ফ্লাইওভার / এক্সপ্রেসওয়ে রুট ব্যবহার করুন।")
 
             priority_val = CONDITION_SCORES.get(condition, 40)
             active_ambulances[driver_id] = {
@@ -335,13 +381,13 @@ async def driver_socket(ws: WebSocket):
             system_alert = None
             v2x_civilian_alert = None
             if sos:
-                system_alert = f"CRITICAL: {driver_id} has broadcast an emergency SOS packet."
+                system_alert = f"🚨 এসওএস সংকেত: {driver_id} জরুরি সাহায্যের আবেদন করেছে!"
 
             for node_id, node in traffic_nodes.items():
                 approaching = []
                 for amb_id, amb in active_ambulances.items():
                     d = math.hypot(amb["lat"] - node["lat"], amb["lon"] - node["lon"])
-                    # ৫০০ মিটারের ভেতর এলে V2X অ্যালার্ট ট্রিগার
+                    # ৫০০ মিটারের ভেতর এলে স্বয়ংক্রিয় V2X অ্যালার্ট ট্রিগার
                     if d < 0.0050:
                         approaching.append((amb_id, amb["priority_score"], amb["condition"], d))
 
@@ -359,7 +405,7 @@ async def driver_socket(ws: WebSocket):
                         active_ambulances[losing_id]["preemption_hold"] = True
                         active_ambulances[losing_id]["corridor_active"] = False
 
-                    system_alert = f"Preemption Conflict: {node['name']} cleared for {winning_id} [{winning_cond}]."
+                    system_alert = f"এআই প্রায়োরিটি আরবিটার: {node['name']} মোড়ে {winning_id} [{winning_cond}]-কে অগ্রাধিকার দেওয়া হয়েছে!"
                     v2x_civilian_alert = {
                         "node": node["name"],
                         "message": f"EMERGENCY VEHICLE APPROACHING ({winning_id}) - CLEAR LANE 1",
@@ -371,11 +417,11 @@ async def driver_socket(ws: WebSocket):
                     node["corridor_active"] = True
                     node["granted_unit"] = unit_id
                     node["clearance_sec"] = node.get("clearance_sec", 0) + 3
-                    node["billboard_msg"] = f"EMERGENCY VEHICLE APPROACHING - CLEAR LANE 1"
+                    node["billboard_msg"] = "EMERGENCY VEHICLE APPROACHING - CLEAR LANE 1"
                     active_ambulances[unit_id]["corridor_active"] = True
                     active_ambulances[unit_id]["preemption_hold"] = False
                     if not system_alert:
-                        system_alert = f"Green Corridor Preemption: {node['name']} cleared."
+                        system_alert = f"গ্রিন করিডোর সক্রিয়: {node['name']} ক্লিয়ার করা হয়েছে।"
                     v2x_civilian_alert = {
                         "node": node["name"],
                         "message": "EMERGENCY VEHICLE APPROACHING - CLEAR LANE 1",
@@ -384,9 +430,9 @@ async def driver_socket(ws: WebSocket):
 
                     if random.random() < 0.25 and len(node["violations"]) < 4:
                         node["violations"].append({
-                            "plate": f"DHK-{random.randint(11, 48)}-{random.randint(1000, 9999)}",
+                            "plate": f"ঢাকা মেট্রো-গ-{random.randint(11, 48)}-{random.randint(1000, 9999)}",
                             "time": datetime.now().strftime("%H:%M:%S"),
-                            "infraction": "Failure to yield preemption corridor"
+                            "infraction": "জরুরি গ্রিন করিডোরে লেন অমান্য"
                         })
                 else:
                     if not node.get("manual", False):
@@ -427,6 +473,6 @@ async def driver_socket(ws: WebSocket):
                 "ambulances": active_ambulances,
                 "intersections": traffic_nodes,
                 "incident_logs": incident_logs,
-                "alert": f"Unit {driver_id} disconnected from network.",
+                "alert": f"{driver_id} অফলাইনে চলে গেছে।",
                 "v2x_alert": None
             })
