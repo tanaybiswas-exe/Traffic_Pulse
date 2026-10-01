@@ -42,7 +42,7 @@
               OPERATIONAL
             </span>
           </div>
-          <p class="text-xs text-slate-400">Intelligent Transportation System - Public V2X Preemption Hub</p>
+          <p class="text-xs text-slate-400">Intelligent Transportation System - Dynamic Preemption Hub</p>
         </div>
       </div>
 
@@ -50,10 +50,10 @@
         <a href="/civilian" target="_blank" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
           <i class="fa-solid fa-car"></i> Public V2X Feed
         </a>
-        <a href="/driver" target="_blank" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+        <a href="/driver" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-satellite-dish text-blue-400"></i> Driver HUD
         </a>
-        <a href="/sergeant" target="_blank" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+        <a href="/sergeant" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-shield-halved text-amber-400"></i> Sergeant
         </a>
         <button onclick="generateAuditReportPDF()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow flex items-center gap-1.5 transition">
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-    <!-- Live V2X Overhead Billboard Variable Message Sign (VMS) -->
+    <!-- Live V2X Overhead Billboard -->
     <div class="vms-display p-3 rounded-xl flex items-center justify-between shadow-inner">
       <div class="flex items-center gap-3">
         <span class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
@@ -163,7 +163,7 @@
   </div>
 
   <script>
-    const map = L.map('mainMap', { zoomControl: true }).setView([23.7500, 90.3900], 13);
+    const map = L.map('mainMap', { zoomControl: true }).setView([23.8500, 90.2600], 13);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -215,22 +215,23 @@
         if (amb.corridor_active) corridorsActive++;
 
         const pos = [amb.lat, amb.lon];
+        
+        // ব্যবহারকারীর রিয়েল লোকেশনে সেন্টারিং
         if (!autoCentered) {
           map.setView(pos, 14);
           autoCentered = true;
         }
 
         let sosFlag = amb.sos ? `<div style="color: red; font-weight: bold;">SOS BROADCAST ACTIVE</div>` : '';
-        let holdFlag = amb.preemption_hold ? `<div style="color: orange; font-weight: bold;">PREEMPTION HOLD - LOWER PRIORITY</div>` : '';
 
         if (!vehicleMarkers[id]) {
           vehicleMarkers[id] = L.marker(pos, { icon: ambIcon }).addTo(map).bindPopup(`
             <div style="font-size: 12px; font-family: sans-serif;">
               <b>Unit: ${id}</b><br/>
-              Condition: ${amb.condition} (Priority: ${amb.priority_score})<br/>
+              Condition: ${amb.condition}<br/>
               Velocity: ${amb.speed} km/h<br/>
               Target: ${amb.destination}<br/>
-              ${sosFlag}${holdFlag}
+              ${sosFlag}
             </div>
           `);
         } else {
@@ -240,7 +241,7 @@
         if (amb.route_coords && amb.route_coords.length > 0) {
           if (vehicleRoutes[id]) map.removeLayer(vehicleRoutes[id]);
           vehicleRoutes[id] = L.polyline(amb.route_coords, {
-            color: amb.preemption_hold ? '#d97706' : '#0284c7',
+            color: '#0284c7',
             weight: 5,
             opacity: 0.85
           }).addTo(map);
@@ -281,34 +282,22 @@
             color: '#fff',
             weight: 2,
             fillOpacity: 0.9
-          }).addTo(map).bindPopup(`<b>${item.name}</b><br>Signal: ${item.signal}<br>Clearance: ${item.clearance_sec || 0}s`);
+          }).addTo(map).bindPopup(`<b>${item.name}</b><br>Signal: ${item.signal}`);
         } else {
           nodeMarkers[id].setLatLng([item.lat, item.lon]);
           nodeMarkers[id].setStyle({ fillColor: isGreen ? '#10b981' : '#ef4444' });
         }
-
-        let grantTag = item.granted_unit 
-          ? `<span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded">Locked: ${item.granted_unit}</span>` 
-          : '';
 
         container.innerHTML += `
           <div class="p-2.5 rounded-lg border ${isGreen ? 'bg-emerald-950/20 border-emerald-500/50' : 'bg-slate-900/60 border-slate-800'}">
             <div class="flex justify-between items-center mb-1">
               <div>
                 <span class="text-xs font-semibold text-slate-200">${item.name}</span>
-                <div class="text-[10px] text-slate-500">${item.status} (${item.speed} km/h) ${grantTag}</div>
+                <div class="text-[10px] text-slate-500">${item.status} (${item.speed} km/h)</div>
               </div>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded ${isGreen ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500/20 text-rose-400'}">
                 ${item.signal}
               </span>
-            </div>
-            <div class="flex justify-between items-center pt-1 border-t border-slate-800 text-[10px] mt-1">
-              <span class="${isGreen ? 'text-emerald-400 font-medium' : 'text-slate-500'}">
-                Clearance: ${item.clearance_sec || 0}s
-              </span>
-              <button onclick="executeOverride('${item.id}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">
-                Override
-              </button>
             </div>
           </div>
         `;
@@ -316,87 +305,13 @@
 
       document.getElementById('billboardText').textContent = activeBillboardMessage;
       document.getElementById('violatorCount').textContent = `${totalViolations} Logged`;
-
-      if (data.incident_logs && data.incident_logs.length > 0) {
-        const logBox = document.getElementById('dispatchLogs');
-        logBox.innerHTML = '';
-        data.incident_logs.forEach(l => {
-          logBox.innerHTML += `
-            <div class="p-1 rounded bg-slate-950/60 flex justify-between items-center text-[10px]">
-              <span class="font-medium text-slate-300">${l.unit} ➔ ${l.destination}</span>
-              <span class="text-emerald-400 font-medium">+${l.saved_mins}m Saved</span>
-            </div>
-          `;
-        });
-      }
-
-      const alertBox = document.getElementById('alertBanner');
-      if (data.alert) {
-        document.getElementById('alertText').textContent = data.alert;
-        alertBox.classList.remove('hidden');
-      } else {
-        alertBox.classList.add('hidden');
-      }
     };
 
     function generateAuditReportPDF() {
-      if (!window.jspdf) {
-        alert("PDF generator is initializing. Please retry in 2 seconds.");
-        return;
-      }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 25, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.text("TrafficPulse ITS - Automated Preemption Audit Report", 14, 16);
-
-      doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139);
-      doc.text(`Generated at: ${new Date().toLocaleString()} | Security Level: Official Audit Trail`, 14, 32);
-
-      let summaryData = [
-        ["Active Operational Units", document.getElementById('unitCount').textContent],
-        ["Active Corridor Locks", document.getElementById('corridorCount').textContent],
-        ["Total ANPR Infractions", document.getElementById('violatorCount').textContent],
-        ["V2X Dynamic Status", document.getElementById('billboardText').textContent]
-      ];
-
-      doc.autoTable({
-        startY: 38,
-        head: [["Metric Category", "Current Infrastructure State"]],
-        body: summaryData,
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59] }
-      });
-
-      let nodeTable = [];
-      if (globalDataSnapshot && globalDataSnapshot.intersections) {
-        Object.values(globalDataSnapshot.intersections).forEach(n => {
-          nodeTable.push([
-            n.name,
-            n.signal,
-            `${n.clearance_sec || 0} seconds`,
-            `${(n.violations || []).length} Plates Logged`,
-            n.status
-          ]);
-        });
-      }
-
-      if (nodeTable.length > 0) {
-        doc.text("Intersection Preemption & ANPR Performance Table", 14, doc.lastAutoTable.finalY + 12);
-        doc.autoTable({
-          startY: doc.lastAutoTable.finalY + 16,
-          head: [["Node Name", "Signal State", "Preemption Time", "ANPR Infractions", "Traffic Flow"]],
-          body: nodeTable,
-          theme: 'striped',
-          headStyles: { fillColor: [16, 185, 129] }
-        });
-      }
-
-      doc.save(`TrafficPulse_Audit_Report_${Date.now()}.pdf`);
+      doc.text("TrafficPulse ITS - Preemption Audit Report", 14, 16);
+      doc.save("TrafficPulse_Audit_Report.pdf");
     }
   </script>
 </body>
