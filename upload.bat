@@ -46,7 +46,7 @@ echo (You can minimize this window or close it whenever done)
 echo.
 
 :: Wait for .5 minutes (30 seconds)
-timeout /t 60 /nobreak
+timeout /t 30 /nobreak
 
 :: Loop back to sync
 goto sync_process
