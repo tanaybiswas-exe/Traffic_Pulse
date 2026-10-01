@@ -5,5 +5,5 @@ git add .
 git commit -m "Auto sync: %date% %time%"
 git push origin main
 echo Done. Waiting 30 seconds for next sync...
-timeout /t 30 /nobreak >nul
+timeout /t 5 /nobreak >nul
 goto loop
