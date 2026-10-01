@@ -41,11 +41,11 @@ if defined HAS_CHANGES (
 )
 
 echo.
-echo Next auto-check in 1 minutes (60 seconds)...
+echo Next auto-check in .5 minutes (30 seconds)...
 echo (You can minimize this window or close it whenever done)
 echo.
 
-:: Wait for 1 minutes (60 seconds)
+:: Wait for .5 minutes (30 seconds)
 timeout /t 60 /nobreak
 
 :: Loop back to sync
