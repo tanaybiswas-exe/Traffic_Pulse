@@ -41,12 +41,12 @@ if defined HAS_CHANGES (
 )
 
 echo.
-echo Next auto-check in 2 minutes (120 seconds)...
+echo Next auto-check in 1 minutes (60 seconds)...
 echo (You can minimize this window or close it whenever done)
 echo.
 
-:: Wait for 5 minutes (300 seconds)
-timeout /t 120 /nobreak
+:: Wait for 1 minutes (60 seconds)
+timeout /t 60 /nobreak
 
 :: Loop back to sync
 goto sync_process
