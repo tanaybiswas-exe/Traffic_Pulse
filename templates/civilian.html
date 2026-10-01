@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Public V2X & Civilian Traffic Feed - TrafficPulse</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="p-3 min-h-screen">
+  <div class="max-w-md mx-auto space-y-3">
+    
+    <!-- Top Bar -->
+    <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl flex justify-between items-center shadow-lg">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg border border-emerald-500/30">
+          <i class="fa-solid fa-satellite"></i>
+        </div>
+        <div>
+          <div class="text-xs font-semibold text-white">CIVILIAN V2X BROADCAST</div>
+          <div class="text-[10px] text-slate-500">Public Safety Notification System</div>
+        </div>
+      </div>
+      <div class="mono text-xs font-medium text-emerald-400" id="timeTick">--:--:--</div>
+    </div>
+
+    <!-- Live Emergency Broadcast Banner (500m Doppler Range) -->
+    <div id="civilianAlertCard" class="hidden p-4 rounded-xl bg-rose-950/80 border-2 border-rose-500 text-rose-200 shadow-2xl animate-pulse space-y-2">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-rose-400 text-3xl"></i>
+        <div>
+          <div class="text-xs font-bold text-white uppercase tracking-wider">EMERGENCY VEHICLE INBOUND</div>
+          <div class="text-sm font-extrabold text-rose-300" id="v2xMessage">CLEAR LANE 1 IMMEDIATELY</div>
+        </div>
+      </div>
+      <div class="flex justify-between items-center text-[11px] pt-2 border-t border-rose-800/80">
+        <span class="text-slate-300">Approaching Sector: <b id="v2xSector">Junction</b></span>
+        <span class="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]" id="v2xDistance">~500m</span>
+      </div>
+    </div>
+
+    <!-- Active Intersection V2X Overhead Display -->
+    <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl space-y-2">
+      <div class="text-xs font-semibold text-slate-400">Electronic Variable Message Signs in Range</div>
+      <div id="v2xNodes" class="space-y-2">
+        <div class="text-slate-500 text-xs italic">Connecting to municipal traffic grid...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const ws = new WebSocket(proto + window.location.host + '/ws/civilian');
+
+    // Chime Audio Tone on Emergency Approach
+    function triggerAlertAudio() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      document.getElementById('timeTick').textContent = data.timestamp;
+
+      const container = document.getElementById('v2xNodes');
+      container.innerHTML = '';
+
+      for (const [id, s] of Object.entries(data.intersections)) {
+        container.innerHTML += `
+          <div class="p-2.5 rounded-lg bg-black border ${s.corridor_active ? 'border-amber-500' : 'border-slate-800'}">
+            <div class="flex justify-between items-center text-[11px] text-slate-400 mb-1">
+              <span>${s.name}</span>
+              <span class="mono text-[10px] ${s.signal === 'GREEN' ? 'text-emerald-400' : 'text-rose-400'}">${s.signal}</span>
+            </div>
+            <div class="mono text-xs font-bold ${s.corridor_active ? 'text-amber-400' : 'text-slate-500'}">
+              ${s.billboard_msg || 'MAINTAIN POSTED SPEED'}
+            </div>
+          </div>
+        `;
+      }
+
+      const alertBox = document.getElementById('civilianAlertCard');
+      if (data.v2x_alert) {
+        document.getElementById('v2xMessage').textContent = data.v2x_alert.message;
+        document.getElementById('v2xSector').textContent = data.v2x_alert.node;
+        document.getElementById('v2xDistance').textContent = `${data.v2x_alert.distance_m}m`;
+        alertBox.classList.remove('hidden');
+        triggerAlertAudio();
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      } else {
+        alertBox.classList.add('hidden');
+      }
+    };
+  </script>
+</body>
+</html>
