@@ -31,9 +31,9 @@
       <div class="mono text-xs font-medium text-emerald-400" id="timeTick">--:--:--</div>
     </div>
 
-    <!-- নোটিফিকেশন এনাবল বাটন (যদি ব্রাউজারে ব্লক থাকে) -->
-    <div id="permBanner" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/40 flex justify-between items-center text-xs">
-      <span class="text-blue-200"><i class="fa-solid fa-bell text-blue-400 mr-1"></i> লাইভ পুশ নোটিফিকেশন চালু করুন:</span>
+    <!-- নোটিফিকেশন অনুমোদন কার্ড -->
+    <div id="permCard" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/40 flex justify-between items-center text-xs">
+      <span class="text-blue-200"><i class="fa-solid fa-bell text-blue-400 mr-1.5"></i> লাইভ পুশ নোটিফিকেশন চালু করুন:</span>
       <button onclick="requestNotificationAccess()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-[11px] shadow">
         অনুমতি দিন
       </button>
@@ -49,7 +49,7 @@
         </div>
       </div>
       <div class="flex justify-between items-center text-[11px] pt-2 border-t border-rose-800/80">
-        <span class="text-slate-300">ইন্টারসেকশন: <b id="v2xSector" class="text-white">শাহবাগ মোড়</b></span>
+        <span class="text-slate-300">ইন্টারসেকশন: <b id="v2xSector" class="text-white">মোড়</b></span>
         <span class="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]" id="v2xDistance">~৩৫০ মি.</span>
       </div>
     </div>
@@ -70,13 +70,12 @@
   <script>
     let notificationPermissionGranted = false;
 
-    // ব্রাউজারে নোটিফিকেশন পারমিশন রিকোয়েস্ট
     function requestNotificationAccess() {
       if ("Notification" in window) {
         Notification.requestPermission().then(permission => {
           if (permission === "granted") {
             notificationPermissionGranted = true;
-            document.getElementById('permBanner').classList.add('hidden');
+            document.getElementById('permCard').classList.add('hidden');
             new Notification("TrafficPulse V2X সক্রিয়", {
               body: "অ্যাম্বুলেন্স আসার ৫০০ মিটার আগেই আপনি সতর্কবার্তা পাবেন।",
               icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
@@ -86,13 +85,11 @@
       }
     }
 
-    // অটোমেটিক পারমিশন চেক
     if ("Notification" in window && Notification.permission === "granted") {
       notificationPermissionGranted = true;
-      document.getElementById('permBanner').classList.add('hidden');
+      document.getElementById('permCard').classList.add('hidden');
     }
 
-    // জরুরি অ্যালার্ট সাউন্ড টোন
     function playAlertTone() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -120,20 +117,7 @@
       const container = document.getElementById('v2xNodes');
       const nodes = Object.values(data.intersections || {});
 
-      // যদি নোড খালি থাকে, ডিফল্ট মেট্রো সিগন্যাল দেখাবে
-      if (nodes.length === 0) {
-        container.innerHTML = `
-          <div class="p-2.5 rounded-lg bg-black border border-slate-800">
-            <div class="flex justify-between items-center text-[11px] text-slate-400 mb-1">
-              <span>সিটি ট্রাফিক করিডোর</span>
-              <span class="mono text-[10px] text-rose-400">RED</span>
-            </div>
-            <div class="mono text-xs font-bold text-slate-500">
-              MAINTAIN POSTED SPEED - DRIVE SAFELY
-            </div>
-          </div>
-        `;
-      } else {
+      if (nodes.length > 0) {
         container.innerHTML = '';
         nodes.forEach(s => {
           container.innerHTML += `
@@ -150,7 +134,6 @@
         });
       }
 
-      // V2X অ্যালার্ট আসলে স্ক্রিন ও পুশ নোটিফিকেশন হ্যান্ডলিং
       const alertBox = document.getElementById('civilianAlertCard');
       if (data.v2x_alert) {
         document.getElementById('v2xMessage').textContent = data.v2x_alert.message;
@@ -161,11 +144,10 @@
         playAlertTone();
         if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
 
-        // অটোমেটিক সিস্টেম পুশ নোটিফিকেশন (প্রতি ১৫ সেকেন্ডে একবার)
         const now = Date.now();
         if (notificationPermissionGranted && (now - lastAlertTime > 15000)) {
           new Notification("🚨 জরুরি অ্যাম্বুলেন্স আসছে!", {
-            body: `${data.v2x_alert.node}-এ অ্যাম্বুলেন্স আসছে। লেন ১ অবিলম্বে খালি করুন!`,
+            body: `${data.v2x_alert.node}-এ জরুরি অ্যাম্বুলেন্স আসছে। লেন ১ অবিলম্বে খালি করুন!`,
             icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
           });
           lastAlertTime = now;

@@ -25,7 +25,6 @@
 <body id="driverBody" class="p-3 font-sans transition-all">
   <div class="max-w-md mx-auto space-y-2.5">
     
-    <!-- Dispatch & Telemetry Bar -->
     <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl flex justify-between items-center shadow-lg">
       <div class="flex items-center gap-2">
         <span class="w-3 h-3 rounded-full bg-rose-500" id="gpsLed"></span>
@@ -48,13 +47,11 @@
       </div>
     </div>
 
-    <!-- Preemption Advisory Notice -->
     <div id="holdBanner" class="hidden p-2 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs flex justify-between items-center">
       <span><i class="fa-solid fa-triangle-exclamation"></i> Approaching intersection has higher priority triage inbound. Standby.</span>
       <span class="text-[9px] bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded">HOLD</span>
     </div>
 
-    <!-- Triage Selection & Destination Query -->
     <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl space-y-2">
       <div class="grid grid-cols-4 gap-1.5 text-center text-xs font-medium">
         <button onclick="selectCondition('Cardiac')" id="triageCardiac" class="p-1.5 rounded-lg border border-slate-700 text-slate-300">
@@ -82,7 +79,6 @@
       </div>
     </div>
 
-    <!-- Velocity & Route Metrics -->
     <div class="grid grid-cols-2 gap-2">
       <div class="bg-[#131b2e] border border-slate-800 p-2 rounded-xl text-center">
         <div class="text-[10px] text-slate-400 font-medium">Telemetry Speed</div>
@@ -94,13 +90,11 @@
       </div>
     </div>
 
-    <!-- Maneuver Guidance Bar -->
     <div id="guidanceBox" class="bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs text-slate-300 flex items-center gap-2">
       <i class="fa-solid fa-arrow-turn-up text-blue-400"></i>
       <span id="guidanceText">Route calculation in progress...</span>
     </div>
 
-    <!-- Map Component -->
     <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl shadow-lg">
       <div id="driverMap"></div>
     </div>

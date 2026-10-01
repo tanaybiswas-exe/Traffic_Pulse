@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- jsPDF & autoTable for Instant Downloadable Enterprise PDF Reports -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
@@ -19,8 +18,6 @@
     body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
     #mainMap { height: 600px; width: 100%; border-radius: 0.75rem; z-index: 1; }
-    
-    /* V2X Variable Message Sign (VMS) Billboard Animation */
     .vms-display {
       background-color: #000;
       border: 2px solid #334155;
@@ -33,7 +30,6 @@
 <body class="p-3 md:p-5 antialiased">
   <div class="max-w-[1680px] mx-auto space-y-4">
     
-    <!-- Top Operations Bar -->
     <header class="flex flex-wrap justify-between items-center bg-[#131b2e] border border-slate-800 p-4 rounded-xl shadow-lg">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xl border border-blue-500/30">
@@ -54,10 +50,10 @@
         <a href="/civilian" target="_blank" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
           <i class="fa-solid fa-car"></i> Public V2X Feed
         </a>
-        <a href="/driver" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+        <a href="/driver" target="_blank" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-satellite-dish text-blue-400"></i> Driver HUD
         </a>
-        <a href="/sergeant" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+        <a href="/sergeant" target="_blank" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-shield-halved text-amber-400"></i> Sergeant
         </a>
         <button onclick="generateAuditReportPDF()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow flex items-center gap-1.5 transition">
@@ -67,7 +63,6 @@
       </div>
     </header>
 
-    <!-- Key Infrastructure Metrics -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl">
         <div class="flex justify-between items-center text-slate-400 text-xs">
@@ -118,7 +113,6 @@
       <span class="text-[10px] text-slate-500 uppercase mono">Variable Message System Active</span>
     </div>
 
-    <!-- System Event Notification -->
     <div id="alertBanner" class="hidden p-3.5 rounded-xl bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-medium flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <i class="fa-solid fa-circle-exclamation text-blue-400"></i>
@@ -127,10 +121,7 @@
       <span class="text-[10px] bg-blue-500/20 text-blue-300 font-semibold px-2 py-0.5 rounded">SYSTEM EVENT</span>
     </div>
 
-    <!-- Main Map & Control Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-      
-      <!-- Spatial Map Interface -->
       <div class="lg:col-span-3 bg-[#131b2e] border border-slate-800 p-3 rounded-xl flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center mb-2 px-1">
@@ -147,7 +138,6 @@
         </div>
       </div>
 
-      <!-- Tactical Control Panel -->
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl flex flex-col justify-between space-y-4">
         <div>
           <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
@@ -155,12 +145,9 @@
             <span class="text-[10px] text-slate-500">Manual Override</span>
           </div>
 
-          <div id="nodesContainer" class="space-y-2 max-h-[360px] overflow-y-auto pr-1">
-            <div class="text-slate-500 text-xs py-2">Awaiting telemetry from responder units...</div>
-          </div>
+          <div id="nodesContainer" class="space-y-2 max-h-[360px] overflow-y-auto pr-1"></div>
         </div>
 
-        <!-- Audit Log Summary -->
         <div class="p-3 bg-slate-900/70 border border-slate-800 rounded-lg text-xs space-y-2">
           <div class="flex justify-between items-center text-slate-300 font-semibold">
             <span>Preemption Dispatch History</span>
@@ -170,9 +157,7 @@
             <div class="text-slate-500 italic">No events recorded</div>
           </div>
         </div>
-
       </div>
-
     </div>
 
   </div>
@@ -273,7 +258,6 @@
 
       document.getElementById('corridorCount').textContent = `${corridorsActive} Active`;
 
-      // Infrastructure Nodes & Billboard
       const container = document.getElementById('nodesContainer');
       const nodeKeys = Object.keys(data.intersections);
 
@@ -355,7 +339,6 @@
       }
     };
 
-    // ৪. স্বয়ংক্রিয় এন্টারপ্রাইজ পিডিএফ অডিট রিপোর্ট জেনারেশন
     function generateAuditReportPDF() {
       if (!window.jspdf) {
         alert("PDF generator is initializing. Please retry in 2 seconds.");
