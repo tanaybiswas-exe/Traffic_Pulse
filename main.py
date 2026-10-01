@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-app = FastAPI(title="TrafficPulse Ultra-Real Engine")
+app = FastAPI(title="TrafficPulse Ultra-Real Engine with Multi-Ambulance Priority")
 
 connected_monitors = set()
 connected_sergeants = set()
@@ -18,11 +18,19 @@ dynamic_intersections = {}
 
 TOMTOM_KEY = "7YuULGQHeO6wW1GkYYP6dqSu84Wn2TPb"
 
+# মেডিকেল প্রায়োরিটি ওয়েট
+PRIORITY_WEIGHTS = {
+    "Cardiac": 100,  # হার্ট অ্যাটাক (সর্বোচ্চ)
+    "Neuro": 85,     # স্ট্রোক / ব্রেইন হেমোরেজ
+    "Trauma": 70,    # সড়ক দুর্ঘটনা
+    "General": 40    # সাধারণ রোগী
+}
+
 def fetch_live_traffic_flow(lat, lon):
-    """TomTom Traffic Flow Segment API দিয়ে বর্তমান পয়েন্টের আসল জ্যাম ও গাড়ির স্পিড চেক"""
+    """TomTom Traffic Flow Segment API"""
     try:
         url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point={lat},{lon}&unit=KMPH&key={TOMTOM_KEY}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/7.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/8.0'})
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             flow = data.get("flowSegmentData", {})
@@ -41,11 +49,10 @@ def fetch_live_traffic_flow(lat, lon):
                 color = "GREEN"
             return current_speed, free_flow_speed, status, color
     except Exception as e:
-        print(f"TomTom Traffic Error: {e}")
         return 35, 45, "স্বাভাবিক ট্রাফিক", "GREEN"
 
 def fetch_real_osm_intersections(lat, lon):
-    """ওপেনস্ট্রিটম্যাপ থেকে ড্রাইভারের আশপাশের আসল সিগন্যাল ও চৌরাস্তা বের করা"""
+    """ওপেনস্ট্রিটম্যাপ থেকে ড্রাইভারের আশপাশের আসল সিগন্যাল ও মোড় আনা"""
     query = f"""
     [out:json][timeout:6];
     (
@@ -58,19 +65,16 @@ def fetch_real_osm_intersections(lat, lon):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     signals = {}
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/7.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/8.0'})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             elements = data.get("elements", [])
             for idx, el in enumerate(elements):
                 s_id = f"SIG_{el.get('id', idx+1)}"
-                name = el.get("tags", {}).get("name")
-                if not name:
-                    name = f"ইন্টারসেকশন জংশন #{idx+1}"
+                name = el.get("tags", {}).get("name") or f"ইন্টারসেকশন জংশন #{idx+1}"
                 s_lat = el.get("lat")
                 s_lon = el.get("lon")
                 
-                # আসল ট্রাফিক ফ্লো চেক
                 spd, ff_spd, traffic_status, color = fetch_live_traffic_flow(s_lat, s_lon)
                 
                 signals[s_id] = {
@@ -80,15 +84,15 @@ def fetch_real_osm_intersections(lat, lon):
                     "lon": s_lon,
                     "signal": "RED",
                     "corridor_active": False,
+                    "active_ambulance_id": None,
                     "traffic_speed": spd,
                     "traffic_status": traffic_status,
                     "cctv_status": f"CCTV Live (Cam-0{idx+1})",
                     "violators": []
                 }
     except Exception as e:
-        print(f"OSM Intersection Fetch Error: {e}")
+        pass
 
-    # কোনো কারণে ইন্টারনেট রেট লিমিট থাকলে ড্রাইভারের অবস্থানের ভিত্তিতে লাইভ রিলেটিভ পয়েন্ট
     if not signals:
         offsets = [
             ("নিকটস্থ মোড় ১ (মেইন রোড)", 0.005, 0.004),
@@ -104,6 +108,7 @@ def fetch_real_osm_intersections(lat, lon):
                 "lon": round(lon + dx, 5),
                 "signal": "RED",
                 "corridor_active": False,
+                "active_ambulance_id": None,
                 "traffic_speed": 28,
                 "traffic_status": "মাঝারি ট্রাফিক",
                 "cctv_status": f"CCTV Live (Cam-0{idx+1})",
@@ -112,7 +117,7 @@ def fetch_real_osm_intersections(lat, lon):
     return signals
 
 def fetch_real_osm_hospitals(lat, lon, condition="General"):
-    """ওপেনস্ট্রিটম্যাপ থেকে ড্রাইভারের আশপাশের আসল হাসপাতাল ও স্বাস্থ্যসেবা প্রতিষ্ঠান"""
+    """ওপেনস্ট্রিটম্যাপ থেকে ড্রাইভারের আশপাশের আসল হাসপাতাল আনা"""
     query = f"""
     [out:json][timeout:6];
     (
@@ -124,7 +129,7 @@ def fetch_real_osm_hospitals(lat, lon, condition="General"):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     hospitals = []
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/7.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/8.0'})
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             for idx, el in enumerate(data.get("elements", [])):
@@ -135,7 +140,6 @@ def fetch_real_osm_hospitals(lat, lon, condition="General"):
                 h_lon = el.get("lon")
                 dist = round(math.hypot((lat - h_lat) * 111, (lon - h_lon) * 111), 2)
                 
-                # রিয়েল ট্রায়াজ বেড ক্যালকুলেশন
                 icu = max(1, (int(h_lat * 1000) % 8) + 1)
                 er = max(4, (int(h_lon * 1000) % 15) + 3)
                 
@@ -151,7 +155,7 @@ def fetch_real_osm_hospitals(lat, lon, condition="General"):
                 })
         hospitals.sort(key=lambda x: x["dist_km"])
     except Exception as e:
-        print(f"Hospital Fetch Error: {e}")
+        pass
 
     if not hospitals:
         hospitals = [
@@ -162,10 +166,10 @@ def fetch_real_osm_hospitals(lat, lon, condition="General"):
     return hospitals
 
 def get_real_osrm_route(start_lat, start_lon, end_lat, end_lon):
-    """OSRM লাইভ টার্ন-বাই-টার্ন পথ ও নেভিগেশন স্টেপস"""
+    """OSRM লাইভ টার্ন-বাই-টার্ন পথ ও নেভিগেশন নির্দেশনা"""
     try:
         url = f"https://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson&steps=true"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/7.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-Core/8.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get("routes"):
@@ -174,16 +178,14 @@ def get_real_osrm_route(start_lat, start_lon, end_lat, end_lon):
                 eta_mins = max(1, round(r["duration"] / 60))
                 coords = [[c[1], c[0]] for c in r["geometry"]["coordinates"]]
                 
-                # নেভিগেশন নির্দেশনা
                 instructions = []
                 for leg in r.get("legs", []):
                     for step in leg.get("steps", [])[:4]:
-                        man = step.get("maneuver", {})
                         instruction = step.get("name") or "সোজা এগিয়ে যান"
                         instructions.append(f"{instruction} ({round(step.get('distance', 0))} মি.)")
                 return dist_km, eta_mins, coords, instructions
     except Exception as e:
-        print(f"OSRM Route Error: {e}")
+        pass
 
     dist = round(math.hypot((start_lat - end_lat) * 111, (start_lon - end_lon) * 111), 2)
     return dist, max(1, round(dist * 2.5)), [[start_lat, start_lon], [end_lat, end_lon]], ["গন্তব্যের দিকে এগিয়ে চলুন"]
@@ -279,6 +281,7 @@ async def ws_driver_route(ws: WebSocket):
             lon = float(data["lon"])
             speed = float(data.get("speed", 0))
             condition = data.get("patient_condition", "General")
+            sos_active = bool(data.get("sos_triggered", False))
 
             global dynamic_intersections
             if not dynamic_intersections or data.get("force_refresh"):
@@ -290,27 +293,84 @@ async def ws_driver_route(ws: WebSocket):
             dest_lon = float(data.get("dest_lon") or (hospitals[0]["lon"] if hospitals else lon + 0.01))
             dest_name = data.get("destination") or (hospitals[0]["name"] if hospitals else "নিকটস্থ হাসপাতাল")
 
-            # ওএসআরএম রুট এবং টার্ন-বাই-টার্ন নেভিগেশন
             dist_km, eta, coords, nav_steps = get_real_osrm_route(lat, lon, dest_lat, dest_lon)
-
-            # TomTom দিয়ে অ্যাম্বুলেন্সের পয়েন্টের লাইভ ট্রাফিক ফ্লো
             spd_cur, spd_free, traffic_status, traffic_color = fetch_live_traffic_flow(lat, lon)
 
-            # গ্রিন করিডোর ও সিসিটিভি এএনপিআর
-            corridor_engaged = False
+            # ফ্লাইওভার অপটিমাইজেশন পরামর্শ
+            flyover_recommended = False
+            if traffic_color == "RED" or spd_cur < 15:
+                flyover_recommended = True
+                nav_steps.insert(0, "⚠️ গ্রাউন্ডে তীব্র জ্যাম! ফ্লাইওভার / এক্সপ্রেসওয়ে রুট ব্যবহার করুন।")
+
+            # বর্তমান অ্যাম্বুলেন্সের অবস্থা সংরক্ষণ
+            my_priority = PRIORITY_WEIGHTS.get(condition, 50)
+            active_ambulances[driver_id] = {
+                "id": driver_id,
+                "lat": lat,
+                "lon": lon,
+                "speed": round(speed * 3.6, 1) if speed > 0 else 46.5,
+                "patient_condition": condition,
+                "priority_score": my_priority,
+                "sos_active": sos_active,
+                "destination": dest_name,
+                "dest_lat": dest_lat,
+                "dest_lon": dest_lon,
+                "distance_km": dist_km,
+                "eta_mins": eta,
+                "route_coords": coords,
+                "nav_steps": nav_steps,
+                "traffic_status": traffic_status,
+                "traffic_color": traffic_color,
+                "flyover_recommended": flyover_recommended,
+                "corridor_active": False,
+                "waiting_for_priority": False,
+                "last_seen": datetime.now().strftime("%I:%M:%S %p")
+            }
+
+            # এআই কনফ্লিক্ট ও মাল্টি-অ্যাম্বুলেন্স প্রায়োরিটি আরবিটার
             active_alert = None
             active_cctv_target = None
 
+            if sos_active:
+                active_alert = f"🚨 এসওএস অ্যালার্ট: {driver_id} জরুরি সাহায্য চেয়েছে! রাস্তায় গাড়ি বিকল/দুর্ঘটনা!"
+
             for s_id, s_info in dynamic_intersections.items():
-                distance = math.hypot(lat - s_info["lat"], lon - s_info["lon"])
-                if distance < 0.0040: # ৪০০ মিটারের ভেতরে এলে করিডোর
+                # এই সিগন্যালের ৪০০ মিটারের মধ্যে কয়টি অ্যাম্বুলেন্স আছে
+                approaching_ambs = []
+                for amb_id, amb in active_ambulances.items():
+                    d = math.hypot(amb["lat"] - s_info["lat"], amb["lon"] - s_info["lon"])
+                    if d < 0.0040:
+                        approaching_ambs.append((amb_id, amb["priority_score"], amb["patient_condition"]))
+
+                if len(approaching_ambs) > 1:
+                    # একাধিক অ্যাম্বুলেন্স কনফ্লিক্ট ডিটেক্টেড -> প্রায়োরিটি সলভার
+                    approaching_ambs.sort(key=lambda x: x[1], reverse=True)
+                    winner_id, winner_score, winner_cond = approaching_ambs[0]
+                    
                     s_info["signal"] = "GREEN"
                     s_info["corridor_active"] = True
-                    corridor_engaged = True
-                    active_alert = f"🚨 করিডোর সক্রিয়: {s_info['name']} সিগন্যাল ক্লিয়ার করা হয়েছে!"
+                    s_info["active_ambulance_id"] = winner_id
+                    active_ambulances[winner_id]["corridor_active"] = True
+
+                    # অন্য অ্যাম্বুলেন্সকে ওয়েটিং ফ্ল্যাগ সেট করা
+                    for other_id, _, other_cond in approaching_ambs[1:]:
+                        active_ambulances[other_id]["waiting_for_priority"] = True
+                        active_ambulances[other_id]["corridor_active"] = False
+
+                    active_alert = f"⚖️ কনফ্লিক্ট রেজলভার: {s_info['name']} মোড়ে {winner_id} [{winner_cond}]-কে অগ্রাধিকার দেওয়া হয়েছে!"
                     active_cctv_target = s_info
 
-                    # রিয়েল টাইম এএনপিআর ভায়োলেটর ডিটেকশন সিমুলেশন
+                elif len(approaching_ambs) == 1:
+                    single_id = approaching_ambs[0][0]
+                    s_info["signal"] = "GREEN"
+                    s_info["corridor_active"] = True
+                    s_info["active_ambulance_id"] = single_id
+                    active_ambulances[single_id]["corridor_active"] = True
+                    active_ambulances[single_id]["waiting_for_priority"] = False
+                    if not active_alert:
+                        active_alert = f"🚨 করিডোর সক্রিয়: {s_info['name']} সিগন্যাল ক্লিয়ার করা হয়েছে!"
+                    active_cctv_target = s_info
+
                     if random.random() < 0.3 and len(s_info["violators"]) < 3:
                         s_info["violators"].append({
                             "plate": f"ঢাকা মেট্রো-গ-{random.randint(11, 45)}-{random.randint(1000, 9999)}",
@@ -321,6 +381,7 @@ async def ws_driver_route(ws: WebSocket):
                     if not s_info.get("manual_override", False):
                         s_info["signal"] = "RED"
                         s_info["corridor_active"] = False
+                        s_info["active_ambulance_id"] = None
 
             # অডিট ট্রিপ হিস্ট্রি
             saved_mins = max(2, round(dist_km * 1.8))
@@ -333,25 +394,6 @@ async def ws_driver_route(ws: WebSocket):
             })
             if len(trip_logs) > 8:
                 trip_logs.pop(0)
-
-            active_ambulances[driver_id] = {
-                "id": driver_id,
-                "lat": lat,
-                "lon": lon,
-                "speed": round(speed * 3.6, 1) if speed > 0 else 46.5,
-                "patient_condition": condition,
-                "destination": dest_name,
-                "dest_lat": dest_lat,
-                "dest_lon": dest_lon,
-                "distance_km": dist_km,
-                "eta_mins": eta,
-                "route_coords": coords,
-                "nav_steps": nav_steps,
-                "traffic_status": traffic_status,
-                "traffic_color": traffic_color,
-                "corridor_active": corridor_engaged,
-                "last_seen": datetime.now().strftime("%I:%M:%S %p")
-            }
 
             resp_driver = dict(active_ambulances[driver_id])
             resp_driver["hospitals"] = hospitals
@@ -375,5 +417,5 @@ async def ws_driver_route(ws: WebSocket):
                 "intersections": dynamic_intersections,
                 "cctv_focus": None,
                 "trip_logs": trip_logs,
-                "alert": f"{driver_id} সংযোগ বিচ্ছিন্ন হয়েছে।"
+                "alert": f"{driver_id} অফলাইনে চলে গেছে।"
             })

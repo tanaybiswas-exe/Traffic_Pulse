@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ড্রাইভার লাইভ জিপিএস নেভিগেটর - TrafficPulse</title>
+  <title>ড্রাইভার লাইভ জিপিএস ও HUD নেভিগেটর - TrafficPulse</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
@@ -14,13 +14,20 @@
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Hind+Siliguri:wght@500;600;700&display=swap');
     body { font-family: 'Hind Siliguri', 'Plus Jakarta Sans', sans-serif; }
     .mono { font-family: 'Plus Jakarta Sans', monospace; }
-    #driverMap { height: calc(100vh - 350px); width: 100%; border-radius: 1.25rem; z-index: 1; }
+    #driverMap { height: calc(100vh - 360px); width: 100%; border-radius: 1.25rem; z-index: 1; }
+    
+    /* HUD মিরর ইফেক্ট (উইন্ডশিল্ড রিফ্লেকশন) */
+    .hud-mirrored {
+      transform: scaleY(-1);
+      filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.9));
+      background-color: #000 !important;
+    }
   </style>
 </head>
-<body class="bg-[#080B11] text-slate-100 p-2.5 md:p-4 font-sans">
+<body id="mainBody" class="bg-[#080B11] text-slate-100 p-2.5 md:p-4 font-sans transition-all">
   <div class="max-w-md mx-auto space-y-2.5">
     
-    <!-- অ্যাকশন প্যানেল -->
+    <!-- কন্ট্রোল ও এসওএস প্যানেল -->
     <div class="bg-[#0F1522] border border-slate-800 p-2.5 rounded-3xl flex justify-between items-center shadow-xl">
       <div class="flex items-center gap-2">
         <span class="w-3.5 h-3.5 rounded-full bg-rose-500" id="gpsIndicator"></span>
@@ -30,17 +37,29 @@
         </div>
       </div>
       
-      <div class="flex gap-2">
-        <button onclick="startHardwareGPS()" id="startBtn" class="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1.5 shadow">
-          <i class="fa-solid fa-location-crosshairs"></i> রিয়েল GPS
+      <div class="flex gap-1.5">
+        <button onclick="toggleHUD()" id="hudBtn" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold text-xs rounded-2xl flex items-center gap-1 border border-cyan-500/30">
+          <i class="fa-solid fa-moon"></i> HUD
         </button>
-        <button onclick="startVirtualDrive()" id="simBtn" class="px-3.5 py-1.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1.5 shadow">
-          <i class="fa-solid fa-car-side"></i> ড্রাইভ মোড
+        <button onclick="triggerSOS()" id="sosBtn" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl flex items-center gap-1 shadow animate-pulse">
+          <i class="fa-solid fa-triangle-exclamation"></i> SOS
+        </button>
+        <button onclick="startHardwareGPS()" id="startBtn" class="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1 shadow">
+          <i class="fa-solid fa-location-crosshairs"></i> GPS
+        </button>
+        <button onclick="startVirtualDrive()" id="simBtn" class="px-3 py-1.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1 shadow">
+          <i class="fa-solid fa-car-side"></i> ড্রাইভ
         </button>
       </div>
     </div>
 
-    <!-- লাইভ ট্রাফিক জ্যাম কার্ড -->
+    <!-- মাল্টিপল প্রায়োরিটি স্ট্যাটাস ব্যাজ -->
+    <div id="priorityNotice" class="hidden p-2 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center justify-between">
+      <span class="flex items-center gap-1.5"><i class="fa-solid fa-hourglass-half animate-spin"></i> সামনে অন্য ক্রিটিক্যাল রোগী! দয়া করে মোড়ে অপেক্ষা করুন।</span>
+      <span class="text-[10px] bg-amber-500 text-slate-950 px-2 py-0.5 rounded font-bold">HOLD</span>
+    </div>
+
+    <!-- রোড কনজেশন ও ফ্লাইওভার অ্যালার্ট -->
     <div class="bg-[#0F1522] border border-slate-800 p-2.5 rounded-2xl flex justify-between items-center">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-road text-amber-400"></i>
@@ -49,20 +68,20 @@
       <span id="trafficBadge" class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">চেক হচ্ছে...</span>
     </div>
 
-    <!-- রোগী ও হাসপাতাল নির্বাচন -->
+    <!-- রোগী নির্বাচন ও এআই প্রায়োরিটি -->
     <div class="bg-[#0F1522] border border-slate-800 p-3 rounded-3xl space-y-2 shadow-lg">
       <div class="grid grid-cols-4 gap-1.5">
         <button onclick="setCondition('Cardiac')" id="btnCardiac" class="p-1.5 rounded-xl border border-slate-700 text-center text-[11px] font-bold">
-          <i class="fa-solid fa-heart-pulse text-rose-500 block text-sm"></i> হার্ট
+          <i class="fa-solid fa-heart-pulse text-rose-500 block text-sm"></i> হার্ট (১০০)
         </button>
         <button onclick="setCondition('Trauma')" id="btnTrauma" class="p-1.5 rounded-xl border border-slate-700 text-center text-[11px] font-bold">
-          <i class="fa-solid fa-car-crash text-amber-500 block text-sm"></i> ট্রমা
+          <i class="fa-solid fa-car-crash text-amber-500 block text-sm"></i> ট্রমা (৭০)
         </button>
         <button onclick="setCondition('Neuro')" id="btnNeuro" class="p-1.5 rounded-xl border border-slate-700 text-center text-[11px] font-bold">
-          <i class="fa-solid fa-brain text-purple-400 block text-sm"></i> স্ট্রোক
+          <i class="fa-solid fa-brain text-purple-400 block text-sm"></i> স্ট্রোক (৮৫)
         </button>
         <button onclick="setCondition('General')" id="btnGeneral" class="p-1.5 rounded-xl border border-emerald-500 bg-emerald-500/20 text-emerald-400 text-center text-[11px] font-bold">
-          <i class="fa-solid fa-hospital-user text-emerald-400 block text-sm"></i> সাধারণ
+          <i class="fa-solid fa-hospital-user text-emerald-400 block text-sm"></i> সাধারণ (৪০)
         </button>
       </div>
 
@@ -77,11 +96,11 @@
       </div>
     </div>
 
-    <!-- স্পিডোমিটার ও নেভিগেশন স্টেপ -->
-    <div class="grid grid-cols-2 gap-2">
+    <!-- HUD স্পিডোমিটার ভিউ -->
+    <div id="hudViewCard" class="grid grid-cols-2 gap-2">
       <div class="bg-[#0F1522] border border-slate-800 p-2 rounded-2xl text-center">
         <div class="text-[10px] text-slate-400 font-semibold">লাইভ স্পিড</div>
-        <div class="text-xl font-extrabold text-cyan-400 mono" id="driverSpeed">০ <span class="text-xs font-normal">km/h</span></div>
+        <div class="text-2xl font-black text-cyan-400 mono" id="driverSpeed">০ <span class="text-xs font-normal">km/h</span></div>
       </div>
       <div class="bg-[#0F1522] border border-slate-800 p-2 rounded-2xl text-center">
         <div class="text-[10px] text-slate-400 font-semibold">বাকি দূরত্ব / সময়</div>
@@ -89,7 +108,7 @@
       </div>
     </div>
 
-    <!-- টার্ন বাই টার্ন ডিরেকশন -->
+    <!-- টার্ন বাই টার্ন ডিরেকশন ও ফ্লাইওভার নির্দেশনা -->
     <div id="navStepBox" class="bg-cyan-950/40 border border-cyan-800/60 p-2 rounded-2xl text-[11px] text-cyan-300 flex items-center gap-2">
       <i class="fa-solid fa-diamond-turn-right text-base text-cyan-400"></i>
       <span id="navStepText">গন্তব্যের দিকে এগিয়ে যান...</span>
@@ -124,6 +143,7 @@
     let routeLine = null;
     let ws = null;
     let patientCondition = "General";
+    let isSos = false;
     let currentDest = null;
     const driverId = "AMB_" + Math.floor(100 + Math.random() * 900);
 
@@ -133,6 +153,24 @@
       iconSize: [34, 34],
       iconAnchor: [17, 17]
     });
+
+    function toggleHUD() {
+      const body = document.getElementById('mainBody');
+      body.classList.toggle('hud-mirrored');
+    }
+
+    function triggerSOS() {
+      isSos = !isSos;
+      const sosBtn = document.getElementById('sosBtn');
+      if (isSos) {
+        sosBtn.className = "px-3 py-1.5 bg-red-600 text-white font-black text-xs rounded-2xl flex items-center gap-1 shadow ring-4 ring-red-400";
+        sosBtn.innerHTML = `<i class="fa-solid fa-bell"></i> SOS ACTIVE`;
+      } else {
+        sosBtn.className = "px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-2xl flex items-center gap-1 shadow animate-pulse";
+        sosBtn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> SOS`;
+      }
+      if (myMarker) sendUpdate(myMarker.getLatLng().lat, myMarker.getLatLng().lng, 15);
+    }
 
     function setCondition(cond) {
       patientCondition = cond;
@@ -157,6 +195,14 @@
         tBadge.textContent = d.traffic_status;
         tBadge.className = `text-xs font-bold px-2 py-0.5 rounded ${d.traffic_color === 'RED' ? 'bg-red-500/20 text-red-400' : (d.traffic_color === 'AMBER' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400')}`;
 
+        // মাল্টিপল অ্যাম্বুলেন্স প্রায়োরিটি নোটিশ
+        const pNotice = document.getElementById('priorityNotice');
+        if (d.waiting_for_priority) {
+          pNotice.classList.remove('hidden');
+        } else {
+          pNotice.classList.add('hidden');
+        }
+
         if (d.nav_steps && d.nav_steps.length > 0) {
           document.getElementById('navStepText').textContent = d.nav_steps[0];
         }
@@ -174,7 +220,7 @@
 
         if (d.route_coords && d.route_coords.length > 0) {
           if (routeLine) map.removeLayer(routeLine);
-          routeLine = L.polyline(d.route_coords, { color: '#10b981', weight: 6, opacity: 0.95 }).addTo(map);
+          routeLine = L.polyline(d.route_coords, { color: d.waiting_for_priority ? '#f59e0b' : '#10b981', weight: 6, opacity: 0.95 }).addTo(map);
         }
       };
     }
@@ -199,6 +245,7 @@
           lon: lon,
           speed: spd,
           patient_condition: patientCondition,
+          sos_triggered: isSos,
           force_refresh: forceRefresh,
           destination: currentDest ? currentDest.name : "নিকটস্থ হাসপাতাল",
           dest_lat: currentDest ? currentDest.lat : lat + 0.01,
@@ -207,7 +254,6 @@
       }
     }
 
-    // আসল হার্ডওয়্যার জিপিএস
     function startHardwareGPS() {
       connectWS();
 
@@ -245,7 +291,6 @@
       );
     }
 
-    // ড্রাইভ মোড
     let driveInterval = null;
     function startVirtualDrive() {
       connectWS();

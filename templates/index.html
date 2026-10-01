@@ -32,16 +32,16 @@
           <div class="flex items-center gap-2">
             <h1 class="text-xl md:text-2xl font-bold tracking-tight text-white">TrafficPulse BD</h1>
             <span class="inline-flex items-center gap-1.5 text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold px-2.5 py-0.5 rounded-full">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> TomTom রিয়েল ট্রাফিক গ্রিড
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> এআই প্রায়োরিটি আরবিটার
             </span>
           </div>
-          <p class="text-xs text-slate-400">লাইভ সিসিটিভি ক্যামেরা, ANPR লাইসেন্স স্ক্যানার ও স্বয়ংক্রিয় গ্রিন করিডোর</p>
+          <p class="text-xs text-slate-400">মাল্টি-অ্যাম্বুলেন্স ডেডলক সলভার, সিসিটিভি ANPR ও লাইভ ট্রাফিক ফ্লো</p>
         </div>
       </div>
 
       <div class="flex items-center gap-2.5 mt-3 sm:mt-0">
         <a href="/driver" target="_blank" class="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1.5 shadow">
-          <i class="fa-solid fa-mobile-screen-button"></i> ড্রাইভার মোড খুলুন
+          <i class="fa-solid fa-mobile-screen-button"></i> ড্রাইভার মোড
         </a>
         <a href="/sergeant" target="_blank" class="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-600 text-slate-950 font-bold text-xs rounded-2xl flex items-center gap-1.5 shadow">
           <i class="fa-solid fa-shield-halved"></i> সার্জেন্ট কনসোল
@@ -58,7 +58,7 @@
           <i class="fa-solid fa-truck-fast text-rose-400"></i>
         </div>
         <div id="ambCount" class="text-2xl md:text-3xl font-extrabold text-white mono">0</div>
-        <div class="text-[11px] text-slate-500 mt-1">রিয়েল-টাইম জিপিএস ট্রান্সমিশন</div>
+        <div class="text-[11px] text-slate-500 mt-1">রিয়েল-টাইম জিপিএস ট্র্যাকিং</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-3xl">
@@ -67,18 +67,18 @@
           <i class="fa-solid fa-wave-square text-emerald-400"></i>
         </div>
         <div id="corridorCount" class="text-2xl md:text-3xl font-extrabold text-emerald-400 mono">০ টি সক্রিয়</div>
-        <div class="text-[11px] text-slate-500 mt-1">ইন্টারসেকশন স্বয়ংক্রিয় ক্লিয়ারেন্স</div>
+        <div class="text-[11px] text-slate-500 mt-1">ইন্টারসেকশন অটো ক্লিয়ারেন্স</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-3xl">
         <div class="flex justify-between items-center text-slate-400 text-xs font-medium mb-1">
-          <span>TomTom রিয়েল ট্রাফিক</span>
-          <i class="fa-solid fa-layer-group text-amber-400"></i>
+          <span>এআই প্রায়োরিটি আরবিটার</span>
+          <i class="fa-solid fa-scale-balanced text-amber-400"></i>
         </div>
         <div class="text-sm font-bold text-amber-300 mt-1.5 flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-amber-400"></span> লাইভ ফ্লো ও জ্যাম ডিটেক্টর
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span> সংঘর্ষ ও ডেডলক নিরসন
         </div>
-        <div class="text-[11px] text-slate-500 mt-1">লাল = জ্যাম | সবুজ = ফাঁকা রাস্তা</div>
+        <div class="text-[11px] text-slate-500 mt-1">রোগীর অবস্থার অগ্রাধিকার নির্ধারণ</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-3xl">
@@ -127,13 +127,13 @@
       <!-- লাইভ সিসিটিভি ক্যামেরা ও সিগন্যাল কলাম -->
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-3xl shadow-xl flex flex-col justify-between space-y-4">
         
-        <!-- সিসিটিভি লাইভ ভিজ্যুয়ালাইজার ক্যানভাস -->
+        <!-- সিসিটিভি লাইভ ক্যানভাস -->
         <div class="space-y-2">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
               <i class="fa-solid fa-video text-rose-500 animate-pulse"></i> সিসিটিভি এআই ফিড (YOLOv8)
             </span>
-            <span class="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-bold" id="camStatus">REC LIVE</span>
+            <span class="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded font-bold">REC LIVE</span>
           </div>
 
           <div class="relative bg-black rounded-2xl overflow-hidden border border-slate-800 aspect-video flex items-center justify-center">
@@ -206,7 +206,6 @@
       iconAnchor: [18, 18]
     });
 
-    // সিসিটিভি এআই সিমুলেটর ক্যানভাস ড্রয়িং
     const canvas = document.getElementById('cctvCanvas');
     const ctx = canvas.getContext('2d');
     canvas.width = 320;
@@ -222,7 +221,6 @@
       ctx.fillStyle = "#111827";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // রোড লেন
       ctx.strokeStyle = "#374151";
       ctx.lineWidth = 2;
       ctx.strokeRect(10, 50, 300, 80);
@@ -235,12 +233,10 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // গাড়িগুলো চালানো
       cars.forEach(car => {
         car.x += car.speed;
         if (car.x > canvas.width + 20) car.x = -50;
 
-        // বাউন্ডিং বক্স
         ctx.strokeStyle = hasCorridor ? "#ef4444" : "#10b981";
         ctx.lineWidth = 1.5;
         ctx.strokeRect(car.x, car.y, car.w, car.h);
@@ -248,7 +244,6 @@
         ctx.fillStyle = hasCorridor ? "rgba(239, 68, 68, 0.15)" : "rgba(16, 185, 129, 0.15)";
         ctx.fillRect(car.x, car.y, car.w, car.h);
 
-        // এআই লেবেল
         ctx.fillStyle = "#fff";
         ctx.font = "8px monospace";
         ctx.fillText(hasCorridor ? "LANE BLOCK" : "CAR 96%", car.x, car.y - 4);
@@ -284,12 +279,17 @@
           mapCentered = true;
         }
 
+        let sosBadge = amb.sos_active ? `<span style="background: red; color: white; padding: 2px 4px; border-radius: 4px; font-weight: bold;">🚨 SOS সক্রিয়</span><br/>` : '';
+        let waitBadge = amb.waiting_for_priority ? `<span style="background: orange; color: black; padding: 2px 4px; border-radius: 4px; font-weight: bold;">⏳ অগ্রাধিকার অপেক্ষমান</span><br/>` : '';
+
         if (!ambulanceMarkers[id]) {
           ambulanceMarkers[id] = L.marker(pos, { icon: ambIcon }).addTo(map).bindPopup(`
             <div style="font-size: 12px;">
               <b style="color: #ef4444;">🚨 ${id}</b><br/>
+              ${sosBadge}
+              ${waitBadge}
+              <b>রোগীর অবস্থা:</b> ${amb.patient_condition} (স্কোর: ${amb.priority_score})<br/>
               <b>গতি:</b> ${amb.speed} কিমি/ঘণ্টা<br/>
-              <b>ট্রাফিক:</b> ${amb.traffic_status}<br/>
               <b>গন্তব্য:</b> ${amb.destination}
             </div>
           `);
@@ -299,7 +299,7 @@
 
         if (amb.route_coords && amb.route_coords.length > 0) {
           if (ambulanceRoutes[id]) map.removeLayer(ambulanceRoutes[id]);
-          ambulanceRoutes[id] = L.polyline(amb.route_coords, { color: '#06b6d4', weight: 6, opacity: 0.9 }).addTo(map);
+          ambulanceRoutes[id] = L.polyline(amb.route_coords, { color: amb.waiting_for_priority ? '#f59e0b' : '#06b6d4', weight: 6, opacity: 0.9 }).addTo(map);
         }
 
         if (amb.dest_lat && amb.dest_lon) {
@@ -319,7 +319,6 @@
         document.getElementById('cctvLoc').textContent = `${data.cctv_focus.name} [লাইভ স্ক্যান]`;
       }
 
-      // সিগন্যাল আপডেট
       const container = document.getElementById('signalsContainer');
       const sigKeys = Object.keys(data.intersections);
 
@@ -348,12 +347,16 @@
           ? `<div class="mt-1 text-[10px] text-rose-400 bg-rose-950/40 p-1 rounded border border-rose-900/50">⚠️ ${item.violators[item.violators.length-1].plate} (লেন লঙ্ঘন)</div>` 
           : '';
 
+        let priorityAmbTag = item.active_ambulance_id 
+          ? `<span class="text-[9px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/30">ছাড়পত্র: ${item.active_ambulance_id}</span>` 
+          : '';
+
         container.innerHTML += `
           <div class="p-2.5 rounded-2xl border ${isGreen ? 'bg-emerald-950/30 border-emerald-500/60 pulse-glow-green' : 'bg-[#090D15] border-slate-800'} transition-all">
             <div class="flex items-center justify-between mb-1">
               <div>
                 <span class="text-xs font-bold text-slate-200">${item.name}</span>
-                <div class="text-[10px] text-slate-400">${item.traffic_status} (${item.traffic_speed} km/h)</div>
+                <div class="text-[10px] text-slate-400">${item.traffic_status} (${item.traffic_speed} km/h) ${priorityAmbTag}</div>
               </div>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded-full ${isGreen ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}">
                 ${item.signal}
