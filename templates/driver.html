@@ -21,9 +21,8 @@
       background-color: #000000 !important;
     }
 
-    /* মসৃণ গাড়ির ঘূর্ণন (Heading Animation) */
     .vehicle-marker-icon {
-      transition: transform 0.25s linear;
+      transition: transform 0.2s linear;
       transform-origin: center center;
     }
   </style>
@@ -36,8 +35,8 @@
       <div class="flex items-center gap-2">
         <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping" id="gpsLed"></span>
         <div>
-          <div class="text-xs font-bold text-slate-200" id="gpsStatus">লাইভ GPS স্যাটেলাইট সক্রিয়</div>
-          <div class="text-[10px] text-slate-400 mono" id="coordsText">23.8500, 90.2600</div>
+          <div class="text-xs font-bold text-slate-200" id="gpsStatus">GPS সংযোগ খোঁজা হচ্ছে...</div>
+          <div class="text-[10px] text-slate-400 mono" id="coordsText">--.----, --.----</div>
         </div>
       </div>
       
@@ -54,21 +53,20 @@
       </div>
     </div>
 
-    <!-- গন্তব্য সার্চ, অটো সাজেশন ও লাইভ ড্রাইভ কন্ট্রোলার -->
+    <!-- গন্তব্য নির্বাচন ও ড্রাইভ কন্ট্রোল -->
     <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl space-y-2">
       <div class="flex gap-1.5">
         <input type="text" id="searchInput" placeholder="যেকোনো গন্তব্য লিখে সার্চ করুন (বা ম্যাপে ট্যাপ করুন)..." 
                class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-blue-500">
-        <button onclick="searchCustomLocation()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">
+        <button onclick="searchCustomLocation()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow shrink-0">
           সার্চ
         </button>
       </div>
 
       <div class="flex gap-2 items-center">
-        <select id="hospitalSelect" onchange="updateTargetLocation()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+        <select id="hospitalSelect" onchange="handleSelectChange()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
           <option value="">নিকটস্থ হাসপাতাল খোঁজা হচ্ছে...</option>
         </select>
-        <!-- রিয়েল-টাইম ড্রাইভ বাটন -->
         <button id="simDriveBtn" onclick="toggleRoadDrivingSimulation()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5 transition">
           <i class="fa-solid fa-play"></i> রান ট্রিপ
         </button>
@@ -91,10 +89,10 @@
       </button>
     </div>
 
-    <!-- লাইভ রিয়েল-টাইম স্পিডোমিটার ও ওডোমিটার -->
+    <!-- লাইভ স্পিডোমিটার ও ওডোমিটার -->
     <div class="grid grid-cols-2 gap-2">
       <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
-        <div class="text-[10px] text-slate-400 font-medium">লাইভ গতি (Road Speed)</div>
+        <div class="text-[10px] text-slate-400 font-medium">লাইভ গতি</div>
         <div class="text-xl font-black text-cyan-400 mono" id="spdMetric">0.0 <span class="text-xs font-normal">কিমি/ঘণ্টা</span></div>
       </div>
       <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
@@ -106,7 +104,7 @@
     <!-- লাইভ টার্ন-বাই-টার্ন নির্দেশিকা -->
     <div id="guidanceBox" class="bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs text-slate-300 flex items-center gap-2 shadow-inner">
       <i class="fa-solid fa-diamond-turn-right text-base text-cyan-400" id="navIcon"></i>
-      <span id="guidanceText" class="font-medium">ম্যাপে ট্যাপ করুন বা 'রান ট্রিপ' চাপুন—লাইভ রুট শুরু হবে...</span>
+      <span id="guidanceText" class="font-medium">ম্যাপে ট্যাপ করুন বা গন্তব্য সার্চ করুন...</span>
     </div>
 
     <!-- নেভিগেশন ম্যাপ -->
@@ -139,7 +137,11 @@
     let ws = null;
     let selectedTriage = "General";
     let isSosEngaged = false;
+    
+    // গন্তব্য অবজেক্ট
     let selectedDestination = null;
+    let isCustomDestinationSet = false; // ব্যবহারকারী নিজে সেট করেছে কিনা ট্র্যাকিং
+    
     let currentUserLat = null;
     let currentUserLon = null;
     let currentRoadPath = [];
@@ -148,7 +150,6 @@
     let currentBearing = 0;
     const unitId = "UNIT_" + Math.floor(100 + Math.random() * 900);
 
-    // ডাইনামিক হেডিং রোটেশনযুক্ত অ্যাম্বুলেন্স মার্কার
     function createAmbulanceIcon(angle = 0) {
       return L.divIcon({
         html: `<div class="vehicle-marker-icon" style="transform: rotate(${angle}deg); background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.9); font-size: 16px;">🚑</div>`,
@@ -165,7 +166,6 @@
       iconAnchor: [16, 16]
     });
 
-    // দুটি জিপিএস পয়েন্টের মধ্যে হেডিং অ্যাঙ্গেল হিসাব করা
     function calculateBearing(lat1, lon1, lat2, lon2) {
       const toRad = (d) => (d * Math.PI) / 180;
       const toDeg = (r) => (r * 180) / Math.PI;
@@ -217,16 +217,27 @@
           document.getElementById('guidanceText').textContent = d.nav_steps[0];
         }
 
-        if (d.hospitals && d.hospitals.length > 0 && !selectedDestination) {
+        // হাসপাতাল ড্রপডাউন আপডেট — কিন্তু ব্যবহারকারীর কাস্টম নির্বাচনকে ওভাররাইট করবে না
+        if (d.hospitals && d.hospitals.length > 0) {
           const select = document.getElementById('hospitalSelect');
-          select.innerHTML = '';
+          const currentVal = select.value;
+          
+          let optionsHtml = '';
+          if (isCustomDestinationSet && selectedDestination) {
+            optionsHtml += `<option value="custom" selected>📍 চিহ্নিত: ${selectedDestination.name}</option>`;
+          }
           d.hospitals.forEach(h => {
-            select.innerHTML += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} কিমি) [ICU: ${h.icu}]</option>`;
+            optionsHtml += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} কিমি) [ICU: ${h.icu}]</option>`;
           });
-          updateTargetLocation();
+          select.innerHTML = optionsHtml;
+
+          if (!isCustomDestinationSet && !selectedDestination) {
+            handleSelectChange();
+          }
         }
 
-        if (d.route_coords && d.route_coords.length > 0) {
+        // শুধুমাত্র যখন সিমুলেশন চলছে না, তখনই মূল রুট রিফ্রেশ হবে
+        if (!isSimulating && d.route_coords && d.route_coords.length > 0) {
           currentRoadPath = d.route_coords;
           if (routePolyline) map.removeLayer(routePolyline);
           routePolyline = L.polyline(d.route_coords, {
@@ -238,28 +249,44 @@
       };
     }
 
-    function updateTargetLocation() {
+    // ড্রপডাউন পরিবর্তন হ্যান্ডলার
+    function handleSelectChange() {
       const select = document.getElementById('hospitalSelect');
-      if (!select.value) return;
+      if (!select.value || select.value === "custom") return;
+      
       const parts = select.value.split(',');
+      isCustomDestinationSet = false;
       setDestinationPoint(parseFloat(parts[0]), parseFloat(parts[1]), parts[2]);
     }
 
+    // নির্দিষ্ট গন্তব্যে মার্কার বসানো এবং রুট রিকোয়েস্ট করা
     function setDestinationPoint(lat, lon, label) {
       selectedDestination = { lat: lat, lon: lon, name: label };
 
       if (targetMarker) map.removeLayer(targetMarker);
       targetMarker = L.marker([lat, lon], { icon: targetIcon }).addTo(map).bindPopup(`<b>গন্তব্য: ${label}</b>`).openPopup();
 
+      document.getElementById('guidanceText').textContent = `গন্তব্য লক করা হয়েছে: ${label}`;
+
       if (vehicleMarker) {
-        transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
+        transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 0);
       }
     }
 
+    // ম্যাপে যেখানেই ট্যাপ করা হবে, হুবহু সেখানেই গন্তব্য ফিক্সড হবে
     map.on('click', function(e) {
-      setDestinationPoint(e.latlng.lat, e.latlng.lng, "ম্যাপে চিহ্নিত গন্তব্য");
+      const lat = e.latlng.lat;
+      const lon = e.latlng.lng;
+      isCustomDestinationSet = true;
+      
+      const select = document.getElementById('hospitalSelect');
+      const customLabel = `ম্যাপে চিহ্নিত স্থান (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
+      
+      select.innerHTML = `<option value="custom" selected>📍 চিহ্নিত: ${customLabel}</option>` + select.innerHTML;
+      setDestinationPoint(lat, lon, customLabel);
     });
 
+    // স্থান সার্চ করা
     function searchCustomLocation() {
       const query = document.getElementById('searchInput').value.trim();
       if (!query) return;
@@ -271,15 +298,22 @@
             const loc = data[0];
             const lat = parseFloat(loc.lat);
             const lon = parseFloat(loc.lon);
+            const cleanName = loc.display_name.split(',')[0];
+            
+            isCustomDestinationSet = true;
+            const select = document.getElementById('hospitalSelect');
+            select.innerHTML = `<option value="custom" selected>📍 সার্চকৃত: ${cleanName}</option>` + select.innerHTML;
+
             map.setView([lat, lon], 15);
-            setDestinationPoint(lat, lon, loc.display_name.split(',')[0]);
+            setDestinationPoint(lat, lon, cleanName);
           } else {
-            alert("স্থানটি খুঁজে পাওয়া যায়নি! ম্যাপে সরাসরি ট্যাপ করে গন্তব্য নির্ধারণ করুন।");
+            alert("স্থানটি পাওয়া যায়নি! ম্যাপে সরাসরি ক্লিক করে গন্তব্য নির্ধারণ করুন।");
           }
         })
-        .catch(() => alert("সার্চ এরর। ম্যাপে ক্লিক করে গন্তব্য সেট করুন।"));
+        .catch(() => alert("সার্চ করতে সমস্যা হয়েছে। ম্যাপে ক্লিক করে গন্তব্য দিন।"));
     }
 
+    // সার্ভারে সঠিক জিপিএস ও গন্তব্য পাঠানো
     function transmitPosition(lat, lon, spd, refresh = false) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -290,9 +324,9 @@
           patient_condition: selectedTriage,
           sos_active: isSosEngaged,
           refresh_nodes: refresh,
-          destination: selectedDestination ? selectedDestination.name : "নিকটস্থ হাসপাতাল",
-          dest_lat: selectedDestination ? selectedDestination.lat : lat + 0.01,
-          dest_lon: selectedDestination ? selectedDestination.lon : lon + 0.01
+          destination: selectedDestination ? selectedDestination.name : null,
+          dest_lat: selectedDestination ? selectedDestination.lat : null,
+          dest_lon: selectedDestination ? selectedDestination.lon : null
         }));
       }
     }
@@ -311,7 +345,7 @@
       currentUserLon = lon;
 
       document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-emerald-400";
-      document.getElementById('gpsStatus').textContent = `লাইভ জিপিএস সংযোগ সক্রিয় (${mode})`;
+      document.getElementById('gpsStatus').textContent = `লাইভ GPS সক্রিয় (${mode})`;
       document.getElementById('coordsText').textContent = `${currentUserLat.toFixed(5)}, ${currentUserLon.toFixed(5)}`;
 
       if (!vehicleMarker) {
@@ -326,7 +360,7 @@
       }
     }
 
-    // হাই-প্রিসিশন স্মুথ ইন্টারপোলেশনযুক্ত রিয়েল-টাইম ড্রাইভ ইঞ্জিন
+    // রিয়েল-টাইম মসৃণ সিমুলেশন ড্রাইভ (রুট ডাইভারশন ফিক্স)
     function toggleRoadDrivingSimulation() {
       const btn = document.getElementById('simDriveBtn');
       if (isSimulating) {
@@ -348,7 +382,7 @@
 
       let pathIdx = 0;
       let subStep = 0;
-      const subDivisions = 6; // প্রতি দুটি পয়েন্টের মাঝে ৬টি স্মুথ ফ্রেম
+      const subDivisions = 5;
 
       driveSimulationTimer = setInterval(() => {
         if (pathIdx >= currentRoadPath.length - 1) {
@@ -356,7 +390,7 @@
           isSimulating = false;
           btn.innerHTML = `<i class="fa-solid fa-check"></i> পৌঁছানো হয়েছে`;
           btn.className = "px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5";
-          document.getElementById('guidanceText').textContent = "গন্তব্যে পৌঁছানো সম্পন্ন হয়েছে! রোগী জরুরি বিভাগে স্থানান্তরিত।";
+          document.getElementById('guidanceText').textContent = "গন্তব্যে পৌঁছানো সম্পন্ন হয়েছে!";
           document.getElementById('spdMetric').innerHTML = `0.0 <span class="text-xs font-normal">কিমি/ঘণ্টা</span>`;
           return;
         }
@@ -364,7 +398,6 @@
         const startPt = currentRoadPath[pathIdx];
         const endPt = currentRoadPath[pathIdx + 1];
 
-        // Linear vector interpolation (মসৃণ রুট মুভমেন্ট)
         const t = subStep / subDivisions;
         const curLat = startPt[0] + (endPt[0] - startPt[0]) * t;
         const curLon = startPt[1] + (endPt[1] - startPt[1]) * t;
@@ -373,14 +406,12 @@
 
         vehicleMarker.setLatLng([curLat, curLon]);
         vehicleMarker.setIcon(createAmbulanceIcon(currentBearing));
-        map.panTo([curLat, curLon], { animate: true, duration: 0.3 });
+        map.panTo([curLat, curLon], { animate: true, duration: 0.25 });
 
-        // লাইভ গতি ও বাকি দূরত্বের হিসাব
-        const liveSpeedKmh = (48 + Math.sin(subStep) * 6).toFixed(1);
+        const liveSpeedKmh = (48 + Math.sin(subStep) * 5).toFixed(1);
         document.getElementById('spdMetric').innerHTML = `${liveSpeedKmh} <span class="text-xs font-normal">কিমি/ঘণ্টা</span>`;
         document.getElementById('coordsText').textContent = `${curLat.toFixed(5)}, ${curLon.toFixed(5)}`;
 
-        // প্রতি সেকেন্ডে সার্ভারে সঠিক পজিশন ব্রডকাস্ট
         if (subStep % 2 === 0) {
           transmitPosition(curLat, curLon, liveSpeedKmh / 3.6);
         }
@@ -390,7 +421,7 @@
           subStep = 0;
           pathIdx++;
         }
-      }, 350); // প্রতি ৩৫০ মিলি-সেকেন্ডে মসৃণ আপডেট
+      }, 300);
     }
 
     function fallbackNetworkLocation() {
@@ -400,11 +431,11 @@
           if (data.latitude && data.longitude) {
             handleResolvedPosition(data.latitude, data.longitude, 0, "Network/IP");
           } else {
-            handleResolvedPosition(23.8500, 90.2600, 0, "ডিফল্ট সাভার/আশুলিয়া");
+            handleResolvedPosition(23.8500, 90.2600, 0, "সাভার/আশুলিয়া");
           }
         })
         .catch(() => {
-          handleResolvedPosition(23.8500, 90.2600, 0, "ডিফল্ট সাভার/আশুলিয়া");
+          handleResolvedPosition(23.8500, 90.2600, 0, "সাভার/আশুলিয়া");
         });
     }
 
@@ -417,7 +448,7 @@
             handleResolvedPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed || 0, "GPS Satellite Live");
           },
           (err) => {
-            console.warn("Satellite GPS delayed or blocked, using network positioning.");
+            console.warn("GPS Satellite delayed, engaging IP fallback.");
             fallbackNetworkLocation();
           },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
