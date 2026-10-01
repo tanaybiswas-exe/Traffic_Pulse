@@ -31,79 +31,145 @@
       <div class="mono text-xs font-medium text-emerald-400" id="timeTick">--:--:--</div>
     </div>
 
+    <!-- নোটিফিকেশন এনাবল বাটন (যদি ব্রাউজারে ব্লক থাকে) -->
+    <div id="permBanner" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/40 flex justify-between items-center text-xs">
+      <span class="text-blue-200"><i class="fa-solid fa-bell text-blue-400 mr-1"></i> লাইভ পুশ নোটিফিকেশন চালু করুন:</span>
+      <button onclick="requestNotificationAccess()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-[11px] shadow">
+        অনুমতি দিন
+      </button>
+    </div>
+
     <!-- Live Emergency Broadcast Banner (500m Doppler Range) -->
-    <div id="civilianAlertCard" class="hidden p-4 rounded-xl bg-rose-950/80 border-2 border-rose-500 text-rose-200 shadow-2xl animate-pulse space-y-2">
+    <div id="civilianAlertCard" class="hidden p-4 rounded-xl bg-rose-950/90 border-2 border-rose-500 text-rose-200 shadow-2xl animate-pulse space-y-2">
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-triangle-exclamation text-rose-400 text-3xl"></i>
         <div>
-          <div class="text-xs font-bold text-white uppercase tracking-wider">EMERGENCY VEHICLE INBOUND</div>
-          <div class="text-sm font-extrabold text-rose-300" id="v2xMessage">CLEAR LANE 1 IMMEDIATELY</div>
+          <div class="text-xs font-bold text-white uppercase tracking-wider">জরুরি অ্যাম্বুলেন্স আসছে (INBOUND)</div>
+          <div class="text-sm font-extrabold text-rose-300" id="v2xMessage">লেন ১ অবিলম্বে খালি করুন!</div>
         </div>
       </div>
       <div class="flex justify-between items-center text-[11px] pt-2 border-t border-rose-800/80">
-        <span class="text-slate-300">Approaching Sector: <b id="v2xSector">Junction</b></span>
-        <span class="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]" id="v2xDistance">~500m</span>
+        <span class="text-slate-300">ইন্টারসেকশন: <b id="v2xSector" class="text-white">শাহবাগ মোড়</b></span>
+        <span class="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]" id="v2xDistance">~৩৫০ মি.</span>
       </div>
     </div>
 
     <!-- Active Intersection V2X Overhead Display -->
     <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl space-y-2">
-      <div class="text-xs font-semibold text-slate-400">Electronic Variable Message Signs in Range</div>
+      <div class="flex justify-between items-center">
+        <span class="text-xs font-semibold text-slate-400">Electronic Variable Message Signs in Range</span>
+        <span class="text-[10px] text-emerald-400 mono">● লাইভ V2MS</span>
+      </div>
       <div id="v2xNodes" class="space-y-2">
-        <div class="text-slate-500 text-xs italic">Connecting to municipal traffic grid...</div>
+        <div class="text-slate-500 text-xs italic py-2 text-center">সার্ভার থেকে ট্রাফিক সাইনবোর্ড লোড হচ্ছে...</div>
       </div>
     </div>
 
   </div>
 
   <script>
-    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const ws = new WebSocket(proto + window.location.host + '/ws/civilian');
+    let notificationPermissionGranted = false;
 
-    // Chime Audio Tone on Emergency Approach
-    function triggerAlertAudio() {
+    // ব্রাউজারে নোটিফিকেশন পারমিশন রিকোয়েস্ট
+    function requestNotificationAccess() {
+      if ("Notification" in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            notificationPermissionGranted = true;
+            document.getElementById('permBanner').classList.add('hidden');
+            new Notification("TrafficPulse V2X সক্রিয়", {
+              body: "অ্যাম্বুলেন্স আসার ৫০০ মিটার আগেই আপনি সতর্কবার্তা পাবেন।",
+              icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
+            });
+          }
+        });
+      }
+    }
+
+    // অটোমেটিক পারমিশন চেক
+    if ("Notification" in window && Notification.permission === "granted") {
+      notificationPermissionGranted = true;
+      document.getElementById('permBanner').classList.add('hidden');
+    }
+
+    // জরুরি অ্যালার্ট সাউন্ড টোন
+    function playAlertTone() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
+        osc.type = "sine";
         osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.3);
+        osc.stop(audioCtx.currentTime + 0.4);
       } catch (e) {}
     }
+
+    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const ws = new WebSocket(proto + window.location.host + '/ws/civilian');
+
+    let lastAlertTime = 0;
 
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
       document.getElementById('timeTick').textContent = data.timestamp;
 
       const container = document.getElementById('v2xNodes');
-      container.innerHTML = '';
+      const nodes = Object.values(data.intersections || {});
 
-      for (const [id, s] of Object.entries(data.intersections)) {
-        container.innerHTML += `
-          <div class="p-2.5 rounded-lg bg-black border ${s.corridor_active ? 'border-amber-500' : 'border-slate-800'}">
+      // যদি নোড খালি থাকে, ডিফল্ট মেট্রো সিগন্যাল দেখাবে
+      if (nodes.length === 0) {
+        container.innerHTML = `
+          <div class="p-2.5 rounded-lg bg-black border border-slate-800">
             <div class="flex justify-between items-center text-[11px] text-slate-400 mb-1">
-              <span>${s.name}</span>
-              <span class="mono text-[10px] ${s.signal === 'GREEN' ? 'text-emerald-400' : 'text-rose-400'}">${s.signal}</span>
+              <span>সিটি ট্রাফিক করিডোর</span>
+              <span class="mono text-[10px] text-rose-400">RED</span>
             </div>
-            <div class="mono text-xs font-bold ${s.corridor_active ? 'text-amber-400' : 'text-slate-500'}">
-              ${s.billboard_msg || 'MAINTAIN POSTED SPEED'}
+            <div class="mono text-xs font-bold text-slate-500">
+              MAINTAIN POSTED SPEED - DRIVE SAFELY
             </div>
           </div>
         `;
+      } else {
+        container.innerHTML = '';
+        nodes.forEach(s => {
+          container.innerHTML += `
+            <div class="p-2.5 rounded-lg bg-black border ${s.corridor_active ? 'border-amber-500 ring-1 ring-amber-500/50' : 'border-slate-800'}">
+              <div class="flex justify-between items-center text-[11px] text-slate-400 mb-1">
+                <span class="font-semibold text-slate-200">${s.name}</span>
+                <span class="mono text-[10px] font-bold ${s.signal === 'GREEN' ? 'text-emerald-400' : 'text-rose-400'}">${s.signal}</span>
+              </div>
+              <div class="mono text-xs font-bold ${s.corridor_active ? 'text-amber-400 tracking-wider' : 'text-slate-500'}">
+                ${s.billboard_msg || 'MAINTAIN POSTED SPEED - DRIVE SAFELY'}
+              </div>
+            </div>
+          `;
+        });
       }
 
+      // V2X অ্যালার্ট আসলে স্ক্রিন ও পুশ নোটিফিকেশন হ্যান্ডলিং
       const alertBox = document.getElementById('civilianAlertCard');
       if (data.v2x_alert) {
         document.getElementById('v2xMessage').textContent = data.v2x_alert.message;
         document.getElementById('v2xSector').textContent = data.v2x_alert.node;
-        document.getElementById('v2xDistance').textContent = `${data.v2x_alert.distance_m}m`;
+        document.getElementById('v2xDistance').textContent = `~${data.v2x_alert.distance_m} মি. দূরে`;
         alertBox.classList.remove('hidden');
-        triggerAlertAudio();
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+        playAlertTone();
+        if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+
+        // অটোমেটিক সিস্টেম পুশ নোটিফিকেশন (প্রতি ১৫ সেকেন্ডে একবার)
+        const now = Date.now();
+        if (notificationPermissionGranted && (now - lastAlertTime > 15000)) {
+          new Notification("🚨 জরুরি অ্যাম্বুলেন্স আসছে!", {
+            body: `${data.v2x_alert.node}-এ অ্যাম্বুলেন্স আসছে। লেন ১ অবিলম্বে খালি করুন!`,
+            icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
+          });
+          lastAlertTime = now;
+        }
       } else {
         alertBox.classList.add('hidden');
       }
