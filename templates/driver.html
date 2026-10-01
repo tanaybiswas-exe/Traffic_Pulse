@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Responder Telemetry & Navigation - TrafficPulse</title>
+  <title>রেসপন্ডার ও ড্রাইভার নেভিগেটর - TrafficPulse</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
@@ -14,7 +14,7 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
-    #driverMap { height: calc(100vh - 340px); width: 100%; border-radius: 0.75rem; z-index: 1; }
+    #driverMap { height: calc(100vh - 380px); width: 100%; border-radius: 0.75rem; z-index: 1; cursor: crosshair; }
     
     .hud-inverted {
       transform: scaleY(-1);
@@ -22,79 +22,89 @@
     }
   </style>
 </head>
-<body id="driverBody" class="p-3 font-sans transition-all">
-  <div class="max-w-md mx-auto space-y-2.5">
+<body id="driverBody" class="p-2.5 md:p-3 font-sans transition-all">
+  <div class="max-w-md mx-auto space-y-2">
     
+    <!-- কন্ট্রোল ও স্ট্যাটাস বার -->
     <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl flex justify-between items-center shadow-lg">
       <div class="flex items-center gap-2">
         <span class="w-3 h-3 rounded-full bg-rose-500" id="gpsLed"></span>
         <div>
-          <div class="text-xs font-semibold text-slate-200" id="gpsStatus">Standby</div>
-          <div class="text-[10px] text-slate-500" id="coordsText">Location unavailable</div>
+          <div class="text-xs font-semibold text-slate-200" id="gpsStatus">লোকেশন খোঁজা হচ্ছে...</div>
+          <div class="text-[10px] text-slate-500" id="coordsText">সেন্সর কানেক্টিং</div>
         </div>
       </div>
       
       <div class="flex gap-1.5">
-        <button onclick="toggleHud()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold text-xs rounded-lg border border-slate-700">
+        <button onclick="toggleHud()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold text-xs rounded-lg border border-slate-700">
           HUD
         </button>
-        <button onclick="sendSosSignal()" id="sosButton" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow">
+        <button onclick="sendSosSignal()" id="sosButton" class="px-2 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow">
           SOS
         </button>
-        <button onclick="activateRealGPS()" id="gpsButton" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow">
-          GPS Active
+        <button onclick="reCenterUserLocation()" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow">
+          <i class="fa-solid fa-crosshairs"></i> আমার লোকেশন
         </button>
       </div>
     </div>
 
-    <div id="holdBanner" class="hidden p-2 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs flex justify-between items-center">
-      <span><i class="fa-solid fa-triangle-exclamation"></i> Approaching intersection has higher priority triage inbound. Standby.</span>
-      <span class="text-[9px] bg-amber-500 text-slate-950 font-bold px-1.5 py-0.5 rounded">HOLD</span>
-    </div>
-
-    <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl space-y-2">
-      <div class="grid grid-cols-4 gap-1.5 text-center text-xs font-medium">
-        <button onclick="selectCondition('Cardiac')" id="triageCardiac" class="p-1.5 rounded-lg border border-slate-700 text-slate-300">
-          Cardiac
-        </button>
-        <button onclick="selectCondition('Neuro')" id="triageNeuro" class="p-1.5 rounded-lg border border-slate-700 text-slate-300">
-          Stroke
-        </button>
-        <button onclick="selectCondition('Trauma')" id="triageTrauma" class="p-1.5 rounded-lg border border-slate-700 text-slate-300">
-          Trauma
-        </button>
-        <button onclick="selectCondition('General')" id="triageGeneral" class="p-1.5 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400">
-          Standard
+    <!-- কাস্টম সার্চ ও গন্তব্য নির্ধারণ (Optional) -->
+    <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl space-y-2">
+      <div class="flex gap-1.5">
+        <input type="text" id="searchInput" placeholder="যেকোনো গন্তব্য লিখে সার্চ করুন (বা ম্যাপে ট্যাপ করুন)..." 
+               class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-blue-500">
+        <button onclick="searchCustomLocation()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg">
+          সার্চ
         </button>
       </div>
 
+      <!-- অটো সাজেস্টেড নিকটস্থ হাসপাতাল তালিকা -->
       <div>
-        <label class="text-[11px] text-slate-400 font-medium flex justify-between">
-          <span>Target Receiving Facility:</span>
-          <span class="text-blue-400 text-[10px]">OSM Real-time</span>
+        <label class="text-[10px] text-slate-400 font-medium flex justify-between">
+          <span>স্বয়ংক্রিয় সাজেস্টেড হাসপাতাল (নিকটস্থ):</span>
+          <span class="text-blue-400 text-[10px]">অটো ম্যাচ</span>
         </label>
-        <select id="hospitalSelect" onchange="updateTargetLocation()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-2 text-white focus:outline-none focus:border-blue-500 mt-1">
-          <option value="">Querying facilities in range...</option>
+        <select id="hospitalSelect" onchange="updateTargetLocation()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500 mt-1">
+          <option value="">আশপাশের হাসপাতাল লোড হচ্ছে...</option>
         </select>
       </div>
     </div>
 
+    <!-- রোগীর অবস্থা সিলেক্টর -->
+    <div class="grid grid-cols-4 gap-1 text-center text-xs font-medium">
+      <button onclick="selectCondition('Cardiac')" id="triageCardiac" class="p-1 rounded-lg border border-slate-700 text-slate-300">
+        হার্ট
+      </button>
+      <button onclick="selectCondition('Neuro')" id="triageNeuro" class="p-1 rounded-lg border border-slate-700 text-slate-300">
+        স্ট্রোক
+      </button>
+      <button onclick="selectCondition('Trauma')" id="triageTrauma" class="p-1 rounded-lg border border-slate-700 text-slate-300">
+        ট্রমা
+      </button>
+      <button onclick="selectCondition('General')" id="triageGeneral" class="p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400">
+        সাধারণ
+      </button>
+    </div>
+
+    <!-- স্পিডোমিটার ও দূরত্ব -->
     <div class="grid grid-cols-2 gap-2">
-      <div class="bg-[#131b2e] border border-slate-800 p-2 rounded-xl text-center">
-        <div class="text-[10px] text-slate-400 font-medium">Telemetry Speed</div>
-        <div class="text-xl font-bold text-blue-400 mono" id="spdMetric">0 <span class="text-xs font-normal">km/h</span></div>
+      <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
+        <div class="text-[10px] text-slate-400 font-medium">লাইভ গতি</div>
+        <div class="text-lg font-bold text-blue-400 mono" id="spdMetric">0 <span class="text-xs font-normal">km/h</span></div>
       </div>
-      <div class="bg-[#131b2e] border border-slate-800 p-2 rounded-xl text-center">
-        <div class="text-[10px] text-slate-400 font-medium">Distance & ETA</div>
-        <div class="text-sm font-semibold text-emerald-400 mono mt-1" id="etaMetric">-- km</div>
+      <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
+        <div class="text-[10px] text-slate-400 font-medium">দূরত্ব ও সময়</div>
+        <div class="text-sm font-semibold text-emerald-400 mono mt-0.5" id="etaMetric">-- km</div>
       </div>
     </div>
 
+    <!-- টার্ন বাই টার্ন ডিরেকশন -->
     <div id="guidanceBox" class="bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs text-slate-300 flex items-center gap-2">
-      <i class="fa-solid fa-arrow-turn-up text-blue-400"></i>
-      <span id="guidanceText">Route calculation in progress...</span>
+      <i class="fa-solid fa-diamond-turn-right text-blue-400"></i>
+      <span id="guidanceText">ম্যাপে ট্যাপ করে বা সার্চ করে যেকোনো গন্তব্য সেট করতে পারেন...</span>
     </div>
 
+    <!-- নেভিগেশন ম্যাপ -->
     <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl shadow-lg">
       <div id="driverMap"></div>
     </div>
@@ -102,7 +112,7 @@
   </div>
 
   <script>
-    const map = L.map('driverMap', { zoomControl: false }).setView([23.7500, 90.3900], 13);
+    const map = L.map('driverMap', { zoomControl: false }).setView([23.8500, 90.2600], 13);
     
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -125,10 +135,19 @@
     let selectedTriage = "General";
     let isSosEngaged = false;
     let selectedDestination = null;
+    let currentUserLat = null;
+    let currentUserLon = null;
     const unitId = "UNIT_" + Math.floor(100 + Math.random() * 900);
 
     const unitIcon = L.divIcon({
-      html: `<div style="background-color: #ef4444; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.4); font-size: 13px;">🚑</div>`,
+      html: `<div style="background-color: #ef4444; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size: 14px;">🚑</div>`,
+      className: '',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    const targetIcon = L.divIcon({
+      html: `<div style="background-color: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size: 13px;">🎯</div>`,
       className: '',
       iconSize: [30, 30],
       iconAnchor: [15, 15]
@@ -142,10 +161,10 @@
       isSosEngaged = !isSosEngaged;
       const btn = document.getElementById('sosButton');
       if (isSosEngaged) {
-        btn.className = "px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-lg shadow ring-2 ring-red-400";
+        btn.className = "px-2 py-1 bg-red-600 text-white font-bold text-xs rounded-lg shadow ring-2 ring-red-400";
         btn.textContent = "SOS ACTIVE";
       } else {
-        btn.className = "px-2.5 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow";
+        btn.className = "px-2 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow";
         btn.textContent = "SOS";
       }
       if (vehicleMarker) transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
@@ -154,9 +173,9 @@
     function selectCondition(cond) {
       selectedTriage = cond;
       ['triageCardiac', 'triageNeuro', 'triageTrauma', 'triageGeneral'].forEach(id => {
-        document.getElementById(id).className = "p-1.5 rounded-lg border border-slate-700 text-slate-300";
+        document.getElementById(id).className = "p-1 rounded-lg border border-slate-700 text-slate-300";
       });
-      document.getElementById('triage' + cond).className = "p-1.5 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 font-semibold";
+      document.getElementById('triage' + cond).className = "p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 font-semibold";
       if (vehicleMarker) transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
     }
 
@@ -170,32 +189,24 @@
         document.getElementById('etaMetric').textContent = `${d.dist_km} km (~${d.eta_mins} mins)`;
         document.getElementById('spdMetric').innerHTML = `${d.speed} <span class="text-xs font-normal">km/h</span>`;
 
-        const holdBox = document.getElementById('holdBanner');
-        if (d.preemption_hold) {
-          holdBox.classList.remove('hidden');
-        } else {
-          holdBox.classList.add('hidden');
-        }
-
         if (d.nav_steps && d.nav_steps.length > 0) {
           document.getElementById('guidanceText').textContent = d.nav_steps[0];
         }
 
-        if (d.hospitals && d.hospitals.length > 0) {
+        // নিকটস্থ হাসপাতালগুলো স্বয়ংক্রিয় সাজেশনে ড্রপডাউনে বসানো
+        if (d.hospitals && d.hospitals.length > 0 && !selectedDestination) {
           const select = document.getElementById('hospitalSelect');
-          const priorVal = select.value;
           select.innerHTML = '';
           d.hospitals.forEach(h => {
-            select.innerHTML += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} km) [ICU: ${h.icu}]</option>`;
+            select.innerHTML += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} কিমি) [ICU: ${h.icu}]</option>`;
           });
-          if (priorVal) select.value = priorVal;
-          if (!selectedDestination) updateTargetLocation();
+          updateTargetLocation();
         }
 
         if (d.route_coords && d.route_coords.length > 0) {
           if (routePolyline) map.removeLayer(routePolyline);
           routePolyline = L.polyline(d.route_coords, {
-            color: d.preemption_hold ? '#d97706' : '#10b981',
+            color: '#10b981',
             weight: 5,
             opacity: 0.9
           }).addTo(map);
@@ -203,16 +214,52 @@
       };
     }
 
+    // ড্রপডাউন থেকে অটো সাজেস্টেড হাসপাতাল পরিবর্তন
     function updateTargetLocation() {
       const select = document.getElementById('hospitalSelect');
       if (!select.value) return;
       const parts = select.value.split(',');
-      selectedDestination = { lat: parseFloat(parts[0]), lon: parseFloat(parts[1]), name: parts[2] };
+      setDestinationPoint(parseFloat(parts[0]), parseFloat(parts[1]), parts[2]);
+    }
+
+    // ম্যাপে ক্লিক করে বা সার্চ করে কাস্টম গন্তব্য সেট করা
+    function setDestinationPoint(lat, lon, label) {
+      selectedDestination = { lat: lat, lon: lon, name: label };
 
       if (targetMarker) map.removeLayer(targetMarker);
-      targetMarker = L.marker([selectedDestination.lat, selectedDestination.lon]).addTo(map).bindPopup(selectedDestination.name).openPopup();
+      targetMarker = L.marker([lat, lon], { icon: targetIcon }).addTo(map).bindPopup(`<b>গন্তব্য: ${label}</b>`).openPopup();
 
-      if (vehicleMarker) transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
+      if (vehicleMarker) {
+        transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
+      }
+    }
+
+    // ব্যবহারকারী ম্যাপের যেকোনো জায়গায় ট্যাপ বা ক্লিক করলে গন্তব্য চিহ্নিত হবে
+    map.on('click', function(e) {
+      const lat = e.latlng.lat;
+      const lon = e.latlng.lng;
+      setDestinationPoint(lat, lon, "ম্যাপে চিহ্নিত স্থান");
+    });
+
+    // কাস্টম সার্চ বার দিয়ে যেকোনো স্থান সার্চ করা (OSM Nominatim API)
+    function searchCustomLocation() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) return;
+
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.length > 0) {
+            const loc = data[0];
+            const lat = parseFloat(loc.lat);
+            const lon = parseFloat(loc.lon);
+            map.setView([lat, lon], 14);
+            setDestinationPoint(lat, lon, loc.display_name.split(',')[0]);
+          } else {
+            alert("স্থানটি খুঁজে পাওয়া যায়নি! সঠিক বানান লিখুন বা ম্যাপে সরাসরি ক্লিক করুন।");
+          }
+        })
+        .catch(() => alert("সার্চ করতে সমস্যা হয়েছে। ম্যাপে ক্লিক করে গন্তব্য নির্ধারণ করুন।"));
     }
 
     function transmitPosition(lat, lon, spd, refresh = false) {
@@ -225,56 +272,49 @@
           patient_condition: selectedTriage,
           sos_active: isSosEngaged,
           refresh_nodes: refresh,
-          destination: selectedDestination ? selectedDestination.name : "Regional Medical Facility",
+          destination: selectedDestination ? selectedDestination.name : "নিকটস্থ হাসপাতাল",
           dest_lat: selectedDestination ? selectedDestination.lat : lat + 0.01,
           dest_lon: selectedDestination ? selectedDestination.lon : lon + 0.01
         }));
       }
     }
 
-    function activateRealGPS() {
-      establishWebSocket();
-
-      if (!navigator.geolocation) {
-        alert("Geolocation sensor unavailable on device.");
-        return;
+    function reCenterUserLocation() {
+      if (currentUserLat && currentUserLon) {
+        map.setView([currentUserLat, currentUserLon], 15);
       }
-
-      document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-emerald-400";
-      document.getElementById('gpsStatus').textContent = "Telemetry Online";
-
-      navigator.geolocation.watchPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          const spd = pos.coords.speed || 0;
-
-          document.getElementById('coordsText').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-
-          if (!vehicleMarker) {
-            vehicleMarker = L.marker([lat, lon], { icon: unitIcon }).addTo(map);
-            map.setView([lat, lon], 16);
-            transmitPosition(lat, lon, spd, true);
-          } else {
-            vehicleMarker.setLatLng([lat, lon]);
-            map.panTo([lat, lon]);
-            transmitPosition(lat, lon, spd);
-          }
-        },
-        (err) => {
-          document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-amber-400";
-          document.getElementById('gpsStatus').textContent = "Sensor Blocked";
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
     }
 
+    // পেজ লোড হওয়ার সাথে সাথে ব্যবহারকারীর বর্তমান লোকেশন স্বয়ংক্রিয়ভাবে ডিটেক্ট করা
     window.onload = () => {
+      establishWebSocket();
+
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((p) => {
-          map.setView([p.coords.latitude, p.coords.longitude], 14);
-          document.getElementById('coordsText').textContent = `${p.coords.latitude.toFixed(4)}, ${p.coords.longitude.toFixed(4)}`;
-        });
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            currentUserLat = pos.coords.latitude;
+            currentUserLon = pos.coords.longitude;
+            const spd = pos.coords.speed || 0;
+
+            document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-emerald-400";
+            document.getElementById('gpsStatus').textContent = "লাইভ জিপিএস সক্রিয়";
+            document.getElementById('coordsText').textContent = `${currentUserLat.toFixed(4)}, ${currentUserLon.toFixed(4)}`;
+
+            if (!vehicleMarker) {
+              vehicleMarker = L.marker([currentUserLat, currentUserLon], { icon: unitIcon }).addTo(map);
+              map.setView([currentUserLat, currentUserLon], 15);
+              transmitPosition(currentUserLat, currentUserLon, spd, true);
+            } else {
+              vehicleMarker.setLatLng([currentUserLat, currentUserLon]);
+              transmitPosition(currentUserLat, currentUserLon, spd);
+            }
+          },
+          (err) => {
+            document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-amber-400";
+            document.getElementById('gpsStatus').textContent = "লোকেশন পারমিশন দিন";
+          },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
       }
     };
   </script>

@@ -8,13 +8,14 @@ from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-app = FastAPI(title="TrafficPulse ITS Core with V2X & Audit Engine", docs_url=None, redoc_url=None)
+app = FastAPI(title="TrafficPulse Adaptive Location ITS Core", docs_url=None, redoc_url=None)
 
 connected_monitors = set()
 connected_sergeants = set()
 connected_civilians = set()
 active_ambulances = {}
 incident_logs = []
+traffic_nodes = {}
 
 TOMTOM_KEY = "7YuULGQHeO6wW1GkYYP6dqSu84Wn2TPb"
 
@@ -25,56 +26,10 @@ CONDITION_SCORES = {
     "General": 40
 }
 
-# ডিফল্ট নোড যাতে ড্রাইভার অফলাইনে থাকলেও সিভিলিয়ান ও মনিটরে বিলবোর্ড সর্বদা দৃশ্যমান থাকে
-traffic_nodes = {
-    "NODE_01": {
-        "id": "NODE_01",
-        "name": "শাহবাগ সেন্ট্রাল ইন্টারসেকশন",
-        "lat": 23.7383,
-        "lon": 90.3956,
-        "signal": "RED",
-        "corridor_active": False,
-        "granted_unit": None,
-        "speed": 32,
-        "status": "Operational Flow",
-        "clearance_sec": 0,
-        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
-        "violations": []
-    },
-    "NODE_02": {
-        "id": "NODE_02",
-        "name": "কারওয়ান বাজার এক্সপ্রেসওয়ে জংশন",
-        "lat": 23.7508,
-        "lon": 90.3935,
-        "signal": "RED",
-        "corridor_active": False,
-        "granted_unit": None,
-        "speed": 28,
-        "status": "Operational Flow",
-        "clearance_sec": 0,
-        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
-        "violations": []
-    },
-    "NODE_03": {
-        "id": "NODE_03",
-        "name": "ফার্মগেট ট্রাফিক করিডোর",
-        "lat": 23.7570,
-        "lon": 90.3888,
-        "signal": "RED",
-        "corridor_active": False,
-        "granted_unit": None,
-        "speed": 35,
-        "status": "Optimal Flow",
-        "clearance_sec": 0,
-        "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
-        "violations": []
-    }
-}
-
 def get_live_traffic_flow(lat, lon):
     try:
         url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point={lat},{lon}&unit=KMPH&key={TOMTOM_KEY}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/11.0'})
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             flow = data.get("flowSegmentData", {})
@@ -91,11 +46,12 @@ def get_live_traffic_flow(lat, lon):
         return 32, 45, "Optimal Flow", "GREEN"
 
 def query_osm_intersections(lat, lon):
+    """ব্যবহারকারীর বর্তমান লোকেশনের চারপাশের আসল ইন্টারসেকশন ও সিগন্যাল লোড করা"""
     query = f"""
     [out:json][timeout:5];
     (
       node["highway"="traffic_signals"](around:4500, {lat}, {lon});
-      node["highway"="crossing"](around:2000, {lat}, {lon});
+      node["highway"="crossing"](around:2500, {lat}, {lon});
       node["junction"="roundabout"](around:3500, {lat}, {lon});
     );
     out center 6;
@@ -103,13 +59,13 @@ def query_osm_intersections(lat, lon):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     nodes = {}
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/11.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             elements = data.get("elements", [])
             for idx, el in enumerate(elements):
                 n_id = f"NODE_{el.get('id', idx+1)}"
-                name = el.get("tags", {}).get("name") or f"ইন্টারসেকশন মোড় #{idx+1}"
+                name = el.get("tags", {}).get("name") or f"ইন্টারসেকশন মোড় #{idx+1}"
                 n_lat = el.get("lat")
                 n_lon = el.get("lon")
                 cur_spd, free_spd, flow_status, flow_color = get_live_traffic_flow(n_lat, n_lon)
@@ -132,8 +88,8 @@ def query_osm_intersections(lat, lon):
 
     if not nodes:
         offsets = [
-            ("নিকটস্থ মোড় ০১ (মেইন রোড)", 0.005, 0.004),
-            ("ট্রাফিক ইন্টারসেকশন ০২", -0.004, 0.006),
+            ("নিকটস্থ ট্রাফিক মোড় ০১", 0.005, 0.004),
+            ("লোকাল ইন্টারসেকশন ০২", -0.004, 0.006),
             ("বাইপাস ক্রসিং ০৩", 0.007, -0.005)
         ]
         for idx, (label, dy, dx) in enumerate(offsets):
@@ -155,6 +111,7 @@ def query_osm_intersections(lat, lon):
     return nodes
 
 def query_osm_hospitals(lat, lon, condition="General"):
+    """ব্যবহারকারীর বর্তমান লোকেশনের চারপাশের আসল হাসপাতাল ও স্বাস্থ্যসেবা কেন্দ্র লোড করা"""
     query = f"""
     [out:json][timeout:5];
     (
@@ -166,7 +123,7 @@ def query_osm_hospitals(lat, lon, condition="General"):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     hospitals = []
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/11.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             for idx, el in enumerate(data.get("elements", [])):
@@ -194,16 +151,16 @@ def query_osm_hospitals(lat, lon, condition="General"):
 
     if not hospitals:
         hospitals = [
-            {"id": "H1", "name": "জেনারেল ইমার্জেন্সি ও ট্রমা কেয়ার", "lat": round(lat + 0.012, 5), "lon": round(lon + 0.010, 5), "dist_km": 1.8, "icu": 5, "er": 12, "match": True},
-            {"id": "H2", "name": "স্পেশালাইজড কার্ডিয়াক কেয়ার সেন্টার", "lat": round(lat - 0.015, 5), "lon": round(lon + 0.012, 5), "dist_km": 2.4, "icu": 3, "er": 8, "match": True},
-            {"id": "H3", "name": "সেন্ট্রাল মেডিকেল কলেজ ও হাসপাতাল", "lat": round(lat + 0.020, 5), "lon": round(lon - 0.014, 5), "dist_km": 3.1, "icu": 6, "er": 15, "match": True}
+            {"id": "H1", "name": "নিকটস্থ ইমার্জেন্সি ও ট্রমা কেয়ার", "lat": round(lat + 0.012, 5), "lon": round(lon + 0.010, 5), "dist_km": 1.8, "icu": 5, "er": 12, "match": True},
+            {"id": "H2", "name": "স্পেশালাইজড কার্ডিয়াক কেয়ার সেন্টার", "lat": round(lat - 0.015, 5), "lon": round(lon + 0.012, 5), "dist_km": 2.4, "icu": 3, "er": 8, "match": True},
+            {"id": "H3", "name": "সেন্ট্রাল মেডিকেল কমপ্লেক্স", "lat": round(lat + 0.020, 5), "lon": round(lon - 0.014, 5), "dist_km": 3.1, "icu": 6, "er": 15, "match": True}
         ]
     return hospitals
 
 def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
     try:
         url = f"https://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson&steps=true"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/11.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get("routes"):
@@ -307,7 +264,6 @@ async def sergeant_socket(ws: WebSocket):
 async def civilian_socket(ws: WebSocket):
     await ws.accept()
     connected_civilians.add(ws)
-    # কানেক্ট হওয়ার সাথে সাথে বর্তমান ট্রাফিক নোড এবং সাইনবোর্ড পাঠিয়ে দেওয়া
     await ws.send_text(json.dumps({
         "timestamp": datetime.now().strftime("%H:%M:%S"),
         "ambulances": active_ambulances,
@@ -336,15 +292,17 @@ async def driver_socket(ws: WebSocket):
             condition = data.get("patient_condition", "General")
             sos = bool(data.get("sos_active", False))
 
+            # ব্যবহারকারীর বর্তমান অবস্থানের ভিত্তিতে ডায়নামিক মোড় ও হাসপাতাল কুয়েরি
             global traffic_nodes
-            if data.get("refresh_nodes"):
+            if not traffic_nodes or data.get("refresh_nodes"):
                 traffic_nodes = query_osm_intersections(lat, lon)
 
             hospitals = query_osm_hospitals(lat, lon, condition)
 
+            # ব্যবহারকারী কোনো কাস্টম মার্কার বা সার্চকৃত জায়গা দিলে সেটা গন্তব্য হবে, নতুবা নিকটস্থ সেরা হাসপাতাল অটো সাজেস্ট করবে
             dest_lat = float(data.get("dest_lat") or (hospitals[0]["lat"] if hospitals else lat + 0.01))
             dest_lon = float(data.get("dest_lon") or (hospitals[0]["lon"] if hospitals else lon + 0.01))
-            dest_name = data.get("destination") or (hospitals[0]["name"] if hospitals else "নিকটস্থ হাসপাতাল")
+            dest_name = data.get("destination") or (hospitals[0]["name"] if hospitals else "চিহ্নিত গন্তব্য")
 
             dist_km, eta, coords, nav_steps = get_osrm_driving_path(lat, lon, dest_lat, dest_lon)
             cur_spd, free_spd, flow_status, flow_color = get_live_traffic_flow(lat, lon)
@@ -387,7 +345,6 @@ async def driver_socket(ws: WebSocket):
                 approaching = []
                 for amb_id, amb in active_ambulances.items():
                     d = math.hypot(amb["lat"] - node["lat"], amb["lon"] - node["lon"])
-                    # ৫০০ মিটারের ভেতর এলে স্বয়ংক্রিয় V2X অ্যালার্ট ট্রিগার
                     if d < 0.0050:
                         approaching.append((amb_id, amb["priority_score"], amb["condition"], d))
 
