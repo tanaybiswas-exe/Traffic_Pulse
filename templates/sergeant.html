@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ট্রাফিক সার্জেন্ট হ্যান্ডহেল্ড হাব - TrafficPulse BD</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Hind+Siliguri:wght@500;600;700&display=swap');
+    body { font-family: 'Hind Siliguri', 'Plus Jakarta Sans', sans-serif; }
+    .mono { font-family: 'Plus Jakarta Sans', monospace; }
+  </style>
+</head>
+<body class="bg-[#0A0E17] text-slate-100 p-3 min-h-screen">
+  <div class="max-w-md mx-auto space-y-3">
+    
+    <!-- হেডার -->
+    <div class="bg-[#111726] border border-slate-800 p-3.5 rounded-3xl flex justify-between items-center shadow-lg">
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl border border-amber-500/30">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-white">সার্জেন্ট ডিউটি কনসোল</div>
+          <div class="text-[10px] text-slate-400">ডিএমপি ট্রাফিক কন্ট্রোল লিংক</div>
+        </div>
+      </div>
+      <div class="mono text-xs font-bold text-emerald-400" id="clock">--:--:--</div>
+    </div>
+
+    <!-- জরুরি অ্যালার্ট ব্যানার (সাউন্ড ও ভাইব্রেশন ট্রিগার) -->
+    <div id="urgentCard" class="hidden p-4 rounded-3xl bg-rose-500/20 border-2 border-rose-500 text-rose-200 animate-pulse shadow-2xl">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-3xl text-rose-500"></i>
+        <div>
+          <div class="text-sm font-bold text-white" id="urgentTitle">শাহবাগ মোড়ে অ্যাম্বুলেন্স আসছে!</div>
+          <div class="text-xs text-rose-300" id="urgentDesc">লেন ১ অবিলম্বে খালি করুন।</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ইন্টারসেকশন সিগন্যাল তালিকা -->
+    <div class="space-y-2.5">
+      <div class="text-xs font-bold text-slate-400 px-1">আপনার জোনের ইন্টারসেকশনসমূহ</div>
+      <div id="sergeantSignals" class="space-y-2"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const ws = new WebSocket(proto + window.location.host + '/ws/sergeant');
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      document.getElementById('clock').textContent = data.timestamp;
+
+      const container = document.getElementById('sergeantSignals');
+      container.innerHTML = '';
+
+      let hasCorridor = false;
+
+      for (const [id, s] of Object.entries(data.intersections)) {
+        if (s.corridor_active) hasCorridor = true;
+
+        container.innerHTML += `
+          <div class="p-3.5 rounded-2xl bg-[#111726] border ${s.signal === 'GREEN' ? 'border-emerald-500/80 bg-emerald-950/20' : 'border-slate-800'}">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-sm font-bold text-white">${s.name}</span>
+              <span class="px-2.5 py-0.5 text-xs font-bold rounded-full ${s.signal === 'GREEN' ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500/20 text-rose-400'}">
+                ${s.signal}
+              </span>
+            </div>
+            <div class="text-[11px] text-slate-400">ট্রাফিক চাপ: ${s.traffic_density}% | ${s.cctv_status}</div>
+          </div>
+        `;
+      }
+
+      const alertBox = document.getElementById('urgentCard');
+      if (hasCorridor) {
+        alertBox.classList.remove('hidden');
+        if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+      } else {
+        alertBox.classList.add('hidden');
+      }
+    };
+  </script>
+</body>
+</html>
