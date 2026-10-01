@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Driver Telemetry & Real-Time Navigation - TrafficPulse</title>
+  <title>লাইভ রিয়েল-টাইম GPS নেভিগেটর - TrafficPulse</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
@@ -11,99 +11,105 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap');
     body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
-    #driverMap { height: calc(100vh - 390px); width: 100%; border-radius: 0.75rem; z-index: 1; cursor: crosshair; }
+    #driverMap { height: calc(100vh - 410px); width: 100%; border-radius: 0.75rem; z-index: 1; cursor: crosshair; }
     
     .hud-inverted {
       transform: scaleY(-1);
       background-color: #000000 !important;
+    }
+
+    /* মসৃণ গাড়ির ঘূর্ণন (Heading Animation) */
+    .vehicle-marker-icon {
+      transition: transform 0.25s linear;
+      transform-origin: center center;
     }
   </style>
 </head>
 <body id="driverBody" class="p-2.5 md:p-3 font-sans transition-all">
   <div class="max-w-md mx-auto space-y-2">
     
-    <!-- Top Telemetry Header -->
+    <!-- লাইভ GPS স্ট্যাটাস হেডার -->
     <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl flex justify-between items-center shadow-lg">
       <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full bg-amber-500 animate-pulse" id="gpsLed"></span>
+        <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping" id="gpsLed"></span>
         <div>
-          <div class="text-xs font-semibold text-slate-200" id="gpsStatus">Acquiring GPS Fix...</div>
-          <div class="text-[10px] text-slate-500" id="coordsText">Connecting positioning engine</div>
+          <div class="text-xs font-bold text-slate-200" id="gpsStatus">লাইভ GPS স্যাটেলাইট সক্রিয়</div>
+          <div class="text-[10px] text-slate-400 mono" id="coordsText">23.8500, 90.2600</div>
         </div>
       </div>
       
       <div class="flex gap-1.5">
-        <button onclick="toggleHud()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold text-xs rounded-lg border border-slate-700">
+        <button onclick="toggleHud()" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 font-bold text-xs rounded-lg border border-slate-700">
           HUD
         </button>
-        <button onclick="sendSosSignal()" id="sosButton" class="px-2 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow">
+        <button onclick="sendSosSignal()" id="sosButton" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow">
           SOS
         </button>
-        <button onclick="reCenterUserLocation()" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow">
-          <i class="fa-solid fa-crosshairs"></i> GPS
+        <button onclick="reCenterUserLocation()" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg shadow">
+          <i class="fa-solid fa-crosshairs"></i> আমার লোকেশন
         </button>
       </div>
     </div>
 
-    <!-- Destination Search & Live Road Navigation Controls -->
+    <!-- গন্তব্য সার্চ, অটো সাজেশন ও লাইভ ড্রাইভ কন্ট্রোলার -->
     <div class="bg-[#131b2e] border border-slate-800 p-2.5 rounded-xl space-y-2">
       <div class="flex gap-1.5">
-        <input type="text" id="searchInput" placeholder="Search destination (or tap anywhere on map)..." 
+        <input type="text" id="searchInput" placeholder="যেকোনো গন্তব্য লিখে সার্চ করুন (বা ম্যাপে ট্যাপ করুন)..." 
                class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-white focus:outline-none focus:border-blue-500">
-        <button onclick="searchCustomLocation()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg">
-          Search
+        <button onclick="searchCustomLocation()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow">
+          সার্চ
         </button>
       </div>
 
       <div class="flex gap-2 items-center">
         <select id="hospitalSelect" onchange="updateTargetLocation()" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
-          <option value="">Querying nearby hospitals...</option>
+          <option value="">নিকটস্থ হাসপাতাল খোঁজা হচ্ছে...</option>
         </select>
-        <!-- Real-Time Road Drive Simulation Trigger -->
-        <button id="simDriveBtn" onclick="toggleRoadDrivingSimulation()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5">
-          <i class="fa-solid fa-play"></i> Run Trip
+        <!-- রিয়েল-টাইম ড্রাইভ বাটন -->
+        <button id="simDriveBtn" onclick="toggleRoadDrivingSimulation()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-play"></i> রান ট্রিপ
         </button>
       </div>
     </div>
 
-    <!-- Triage Condition Selector -->
-    <div class="grid grid-cols-4 gap-1 text-center text-xs font-medium">
+    <!-- ট্রায়াজ কন্ডিশন সিলেক্টর -->
+    <div class="grid grid-cols-4 gap-1 text-center text-xs font-semibold">
       <button onclick="selectCondition('Cardiac')" id="triageCardiac" class="p-1 rounded-lg border border-slate-700 text-slate-300">
-        Cardiac
+        হার্ট
       </button>
       <button onclick="selectCondition('Neuro')" id="triageNeuro" class="p-1 rounded-lg border border-slate-700 text-slate-300">
-        Stroke
+        স্ট্রোক
       </button>
       <button onclick="selectCondition('Trauma')" id="triageTrauma" class="p-1 rounded-lg border border-slate-700 text-slate-300">
-        Trauma
+        ট্রমা
       </button>
-      <button onclick="selectCondition('General')" id="triageGeneral" class="p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400">
-        Standard
+      <button onclick="selectCondition('General')" id="triageGeneral" class="p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 font-bold">
+        সাধারণ
       </button>
     </div>
 
-    <!-- Telemetry Display -->
+    <!-- লাইভ রিয়েল-টাইম স্পিডোমিটার ও ওডোমিটার -->
     <div class="grid grid-cols-2 gap-2">
       <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
-        <div class="text-[10px] text-slate-400 font-medium">Live Road Velocity</div>
-        <div class="text-lg font-bold text-blue-400 mono" id="spdMetric">0 <span class="text-xs font-normal">km/h</span></div>
+        <div class="text-[10px] text-slate-400 font-medium">লাইভ গতি (Road Speed)</div>
+        <div class="text-xl font-black text-cyan-400 mono" id="spdMetric">0.0 <span class="text-xs font-normal">কিমি/ঘণ্টা</span></div>
       </div>
       <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl text-center">
-        <div class="text-[10px] text-slate-400 font-medium">Remaining ETA</div>
-        <div class="text-sm font-semibold text-emerald-400 mono mt-0.5" id="etaMetric">-- km</div>
+        <div class="text-[10px] text-slate-400 font-medium">বাকি দূরত্ব ও আনুমানিক সময়</div>
+        <div class="text-sm font-extrabold text-emerald-400 mono mt-0.5" id="etaMetric">-- কিমি</div>
       </div>
     </div>
 
-    <!-- Turn-by-Turn Maneuver Guidance -->
-    <div id="guidanceBox" class="bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs text-slate-300 flex items-center gap-2">
-      <i class="fa-solid fa-location-arrow text-blue-400" id="navIcon"></i>
-      <span id="guidanceText">Tap map or click 'Run Trip' to initiate real-time transit to destination...</span>
+    <!-- লাইভ টার্ন-বাই-টার্ন নির্দেশিকা -->
+    <div id="guidanceBox" class="bg-slate-900 border border-slate-800 p-2 rounded-lg text-xs text-slate-300 flex items-center gap-2 shadow-inner">
+      <i class="fa-solid fa-diamond-turn-right text-base text-cyan-400" id="navIcon"></i>
+      <span id="guidanceText" class="font-medium">ম্যাপে ট্যাপ করুন বা 'রান ট্রিপ' চাপুন—লাইভ রুট শুরু হবে...</span>
     </div>
 
-    <!-- Navigation Map -->
+    <!-- নেভিগেশন ম্যাপ -->
     <div class="bg-[#131b2e] border border-slate-800 p-1.5 rounded-xl shadow-lg">
       <div id="driverMap"></div>
     </div>
@@ -111,7 +117,7 @@
   </div>
 
   <script>
-    const map = L.map('driverMap', { zoomControl: false }).setView([23.8500, 90.2600], 13);
+    const map = L.map('driverMap', { zoomControl: false }).setView([23.8500, 90.2600], 14);
     
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -139,21 +145,34 @@
     let currentRoadPath = [];
     let driveSimulationTimer = null;
     let isSimulating = false;
+    let currentBearing = 0;
     const unitId = "UNIT_" + Math.floor(100 + Math.random() * 900);
 
-    const unitIcon = L.divIcon({
-      html: `<div style="background-color: #ef4444; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size: 14px;">🚑</div>`,
+    // ডাইনামিক হেডিং রোটেশনযুক্ত অ্যাম্বুলেন্স মার্কার
+    function createAmbulanceIcon(angle = 0) {
+      return L.divIcon({
+        html: `<div class="vehicle-marker-icon" style="transform: rotate(${angle}deg); background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.9); font-size: 16px;">🚑</div>`,
+        className: '',
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+      });
+    }
+
+    const targetIcon = L.divIcon({
+      html: `<div style="background-color: #10b981; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid white; box-shadow: 0 0 12px rgba(16, 185, 129, 0.8); font-size: 15px;">🎯</div>`,
       className: '',
       iconSize: [32, 32],
       iconAnchor: [16, 16]
     });
 
-    const targetIcon = L.divIcon({
-      html: `<div style="background-color: #10b981; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size: 13px;">🎯</div>`,
-      className: '',
-      iconSize: [30, 30],
-      iconAnchor: [15, 15]
-    });
+    // দুটি জিপিএস পয়েন্টের মধ্যে হেডিং অ্যাঙ্গেল হিসাব করা
+    function calculateBearing(lat1, lon1, lat2, lon2) {
+      const toRad = (d) => (d * Math.PI) / 180;
+      const toDeg = (r) => (r * 180) / Math.PI;
+      const y = Math.sin(toRad(lon2 - lon1)) * Math.cos(toRad(lat2));
+      const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(toRad(lon2 - lon1));
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
 
     function toggleHud() {
       document.getElementById('driverBody').classList.toggle('hud-inverted');
@@ -163,10 +182,10 @@
       isSosEngaged = !isSosEngaged;
       const btn = document.getElementById('sosButton');
       if (isSosEngaged) {
-        btn.className = "px-2 py-1 bg-red-600 text-white font-bold text-xs rounded-lg shadow ring-2 ring-red-400";
-        btn.textContent = "SOS ACTIVE";
+        btn.className = "px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-lg shadow ring-4 ring-red-400";
+        btn.textContent = "SOS সক্রিয়";
       } else {
-        btn.className = "px-2 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow";
+        btn.className = "px-2.5 py-1 bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs rounded-lg shadow";
         btn.textContent = "SOS";
       }
       if (vehicleMarker) transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
@@ -177,7 +196,7 @@
       ['triageCardiac', 'triageNeuro', 'triageTrauma', 'triageGeneral'].forEach(id => {
         document.getElementById(id).className = "p-1 rounded-lg border border-slate-700 text-slate-300";
       });
-      document.getElementById('triage' + cond).className = "p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 font-semibold";
+      document.getElementById('triage' + cond).className = "p-1 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 font-bold";
       if (vehicleMarker) transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
     }
 
@@ -188,8 +207,11 @@
 
       ws.onmessage = (e) => {
         const d = JSON.parse(e.data);
-        document.getElementById('etaMetric').textContent = `${d.dist_km} km (~${d.eta_mins} mins)`;
-        document.getElementById('spdMetric').innerHTML = `${d.speed} <span class="text-xs font-normal">km/h</span>`;
+        document.getElementById('etaMetric').textContent = `${d.dist_km} কিমি (~${d.eta_mins} মিনিট)`;
+        
+        if (!isSimulating) {
+          document.getElementById('spdMetric').innerHTML = `${d.speed} <span class="text-xs font-normal">কিমি/ঘণ্টা</span>`;
+        }
 
         if (d.nav_steps && d.nav_steps.length > 0) {
           document.getElementById('guidanceText').textContent = d.nav_steps[0];
@@ -199,7 +221,7 @@
           const select = document.getElementById('hospitalSelect');
           select.innerHTML = '';
           d.hospitals.forEach(h => {
-            select.innerHTML += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} km) [ICU: ${h.icu}]</option>`;
+            select.innerHTML += `<option value="${h.lat},${h.lon},${h.name}">${h.name} (${h.dist_km} কিমি) [ICU: ${h.icu}]</option>`;
           });
           updateTargetLocation();
         }
@@ -227,7 +249,7 @@
       selectedDestination = { lat: lat, lon: lon, name: label };
 
       if (targetMarker) map.removeLayer(targetMarker);
-      targetMarker = L.marker([lat, lon], { icon: targetIcon }).addTo(map).bindPopup(`<b>Destination: ${label}</b>`).openPopup();
+      targetMarker = L.marker([lat, lon], { icon: targetIcon }).addTo(map).bindPopup(`<b>গন্তব্য: ${label}</b>`).openPopup();
 
       if (vehicleMarker) {
         transmitPosition(vehicleMarker.getLatLng().lat, vehicleMarker.getLatLng().lng, 15);
@@ -235,7 +257,7 @@
     }
 
     map.on('click', function(e) {
-      setDestinationPoint(e.latlng.lat, e.latlng.lng, "Map Designated Waypoint");
+      setDestinationPoint(e.latlng.lat, e.latlng.lng, "ম্যাপে চিহ্নিত গন্তব্য");
     });
 
     function searchCustomLocation() {
@@ -249,13 +271,13 @@
             const loc = data[0];
             const lat = parseFloat(loc.lat);
             const lon = parseFloat(loc.lon);
-            map.setView([lat, lon], 14);
+            map.setView([lat, lon], 15);
             setDestinationPoint(lat, lon, loc.display_name.split(',')[0]);
           } else {
-            alert("Location not found. Please tap directly on map.");
+            alert("স্থানটি খুঁজে পাওয়া যায়নি! ম্যাপে সরাসরি ট্যাপ করে গন্তব্য নির্ধারণ করুন।");
           }
         })
-        .catch(() => alert("Query error. Please click directly on the map."));
+        .catch(() => alert("সার্চ এরর। ম্যাপে ক্লিক করে গন্তব্য সেট করুন।"));
     }
 
     function transmitPosition(lat, lon, spd, refresh = false) {
@@ -268,7 +290,7 @@
           patient_condition: selectedTriage,
           sos_active: isSosEngaged,
           refresh_nodes: refresh,
-          destination: selectedDestination ? selectedDestination.name : "Assigned Medical Facility",
+          destination: selectedDestination ? selectedDestination.name : "নিকটস্থ হাসপাতাল",
           dest_lat: selectedDestination ? selectedDestination.lat : lat + 0.01,
           dest_lon: selectedDestination ? selectedDestination.lon : lon + 0.01
         }));
@@ -277,72 +299,98 @@
 
     function reCenterUserLocation() {
       if (currentUserLat && currentUserLon) {
-        map.setView([currentUserLat, currentUserLon], 15);
+        map.setView([currentUserLat, currentUserLon], 16);
       }
     }
 
     function handleResolvedPosition(lat, lon, spd, mode) {
+      if (currentUserLat && currentUserLon) {
+        currentBearing = calculateBearing(currentUserLat, currentUserLon, lat, lon);
+      }
       currentUserLat = lat;
       currentUserLon = lon;
 
       document.getElementById('gpsLed').className = "w-3 h-3 rounded-full bg-emerald-400";
-      document.getElementById('gpsStatus').textContent = `Position Active (${mode})`;
-      document.getElementById('coordsText').textContent = `${currentUserLat.toFixed(4)}, ${currentUserLon.toFixed(4)}`;
+      document.getElementById('gpsStatus').textContent = `লাইভ জিপিএস সংযোগ সক্রিয় (${mode})`;
+      document.getElementById('coordsText').textContent = `${currentUserLat.toFixed(5)}, ${currentUserLon.toFixed(5)}`;
 
       if (!vehicleMarker) {
-        vehicleMarker = L.marker([currentUserLat, currentUserLon], { icon: unitIcon }).addTo(map);
-        map.setView([currentUserLat, currentUserLon], 15);
+        vehicleMarker = L.marker([currentUserLat, currentUserLon], { icon: createAmbulanceIcon(currentBearing) }).addTo(map);
+        map.setView([currentUserLat, currentUserLon], 16);
         transmitPosition(currentUserLat, currentUserLon, spd, true);
       } else if (!isSimulating) {
         vehicleMarker.setLatLng([currentUserLat, currentUserLon]);
+        vehicleMarker.setIcon(createAmbulanceIcon(currentBearing));
+        map.panTo([currentUserLat, currentUserLon]);
         transmitPosition(currentUserLat, currentUserLon, spd);
       }
     }
 
-    // Exact Road Transit Simulation: Gari rastar mode-mode agiye destination-e pouche jabe
+    // হাই-প্রিসিশন স্মুথ ইন্টারপোলেশনযুক্ত রিয়েল-টাইম ড্রাইভ ইঞ্জিন
     function toggleRoadDrivingSimulation() {
       const btn = document.getElementById('simDriveBtn');
       if (isSimulating) {
         clearInterval(driveSimulationTimer);
         isSimulating = false;
-        btn.innerHTML = `<i class="fa-solid fa-play"></i> Run Trip`;
+        btn.innerHTML = `<i class="fa-solid fa-play"></i> রান ট্রিপ`;
         btn.className = "px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5";
         return;
       }
 
       if (!currentRoadPath || currentRoadPath.length < 2) {
-        alert("Please set a destination first so the route is calculated!");
+        alert("প্রথমে একটি গন্তব্য নির্ধারণ করুন অথবা ম্যাপে ট্যাপ করুন!");
         return;
       }
 
       isSimulating = true;
-      btn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Trip`;
-      btn.className = "px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5";
+      btn.innerHTML = `<i class="fa-solid fa-stop"></i> ট্রিপ থামান`;
+      btn.className = "px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5 animate-pulse";
 
-      let stepIndex = 0;
+      let pathIdx = 0;
+      let subStep = 0;
+      const subDivisions = 6; // প্রতি দুটি পয়েন্টের মাঝে ৬টি স্মুথ ফ্রেম
+
       driveSimulationTimer = setInterval(() => {
-        if (stepIndex >= currentRoadPath.length) {
+        if (pathIdx >= currentRoadPath.length - 1) {
           clearInterval(driveSimulationTimer);
           isSimulating = false;
-          btn.innerHTML = `<i class="fa-solid fa-check"></i> Arrived!`;
-          document.getElementById('guidanceText').textContent = "Destination Reached! Patient Transferred Successfully.";
+          btn.innerHTML = `<i class="fa-solid fa-check"></i> পৌঁছানো হয়েছে`;
+          btn.className = "px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg shadow shrink-0 flex items-center gap-1.5";
+          document.getElementById('guidanceText').textContent = "গন্তব্যে পৌঁছানো সম্পন্ন হয়েছে! রোগী জরুরি বিভাগে স্থানান্তরিত।";
+          document.getElementById('spdMetric').innerHTML = `0.0 <span class="text-xs font-normal">কিমি/ঘণ্টা</span>`;
           return;
         }
 
-        const point = currentRoadPath[stepIndex];
-        const nextPoint = currentRoadPath[stepIndex + 1] || point;
-        
-        currentUserLat = point[0];
-        currentUserLon = point[1];
+        const startPt = currentRoadPath[pathIdx];
+        const endPt = currentRoadPath[pathIdx + 1];
 
-        vehicleMarker.setLatLng(point);
-        map.panTo(point);
+        // Linear vector interpolation (মসৃণ রুট মুভমেন্ট)
+        const t = subStep / subDivisions;
+        const curLat = startPt[0] + (endPt[0] - startPt[0]) * t;
+        const curLon = startPt[1] + (endPt[1] - startPt[1]) * t;
 
-        const currentSpeedKmh = 48.5 + (Math.random() * 6);
-        transmitPosition(point[0], point[1], currentSpeedKmh / 3.6);
+        currentBearing = calculateBearing(startPt[0], startPt[1], endPt[0], endPt[1]);
 
-        stepIndex++;
-      }, 1200);
+        vehicleMarker.setLatLng([curLat, curLon]);
+        vehicleMarker.setIcon(createAmbulanceIcon(currentBearing));
+        map.panTo([curLat, curLon], { animate: true, duration: 0.3 });
+
+        // লাইভ গতি ও বাকি দূরত্বের হিসাব
+        const liveSpeedKmh = (48 + Math.sin(subStep) * 6).toFixed(1);
+        document.getElementById('spdMetric').innerHTML = `${liveSpeedKmh} <span class="text-xs font-normal">কিমি/ঘণ্টা</span>`;
+        document.getElementById('coordsText').textContent = `${curLat.toFixed(5)}, ${curLon.toFixed(5)}`;
+
+        // প্রতি সেকেন্ডে সার্ভারে সঠিক পজিশন ব্রডকাস্ট
+        if (subStep % 2 === 0) {
+          transmitPosition(curLat, curLon, liveSpeedKmh / 3.6);
+        }
+
+        subStep++;
+        if (subStep >= subDivisions) {
+          subStep = 0;
+          pathIdx++;
+        }
+      }, 350); // প্রতি ৩৫০ মিলি-সেকেন্ডে মসৃণ আপডেট
     }
 
     function fallbackNetworkLocation() {
@@ -352,11 +400,11 @@
           if (data.latitude && data.longitude) {
             handleResolvedPosition(data.latitude, data.longitude, 0, "Network/IP");
           } else {
-            handleResolvedPosition(23.8500, 90.2600, 0, "Default Anchor");
+            handleResolvedPosition(23.8500, 90.2600, 0, "ডিফল্ট সাভার/আশুলিয়া");
           }
         })
         .catch(() => {
-          handleResolvedPosition(23.8500, 90.2600, 0, "Default Anchor");
+          handleResolvedPosition(23.8500, 90.2600, 0, "ডিফল্ট সাভার/আশুলিয়া");
         });
     }
 
@@ -366,10 +414,10 @@
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
           (pos) => {
-            handleResolvedPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed || 0, "GPS Satellite");
+            handleResolvedPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.speed || 0, "GPS Satellite Live");
           },
           (err) => {
-            console.warn("Satellite GPS delayed or blocked, engaging network location fallback.");
+            console.warn("Satellite GPS delayed or blocked, using network positioning.");
             fallbackNetworkLocation();
           },
           { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
