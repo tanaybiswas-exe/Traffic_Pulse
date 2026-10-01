@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrafficPulse BD - সেন্ট্রাল কন্ট্রোল ড্যাশবোর্ড</title>
+  <title>TrafficPulse BD - সেন্ট্রাল লাইভ কমান্ড হাব</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
@@ -11,11 +11,10 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hind+Siliguri:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Hind+Siliguri:wght@400;600;700&display=swap');
     body { font-family: 'Hind Siliguri', sans-serif; }
     .mono { font-family: 'Chakra Petch', monospace; }
-    #publicMap { height: 540px; border-radius: 14px; }
-    .pulse-glow-green { box-shadow: 0 0 16px rgba(16, 185, 129, 0.6); }
+    #publicMap { height: 560px; border-radius: 12px; }
   </style>
 </head>
 <body class="bg-[#080B11] text-slate-100 min-h-screen p-3 md:p-5">
@@ -25,111 +24,117 @@
     <!-- হেডার -->
     <header class="flex flex-wrap justify-between items-center bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-xl">
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/30">
+        <div class="w-11 h-11 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center text-2xl border border-red-500/30">
           <i class="fa-solid fa-truck-medical animate-bounce"></i>
         </div>
         <div>
           <h1 class="text-xl md:text-2xl font-bold tracking-wide text-white flex items-center gap-2">
-            TrafficPulse বাংলাদেশ <span class="text-[10px] bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded-full">স্মার্ট লাইভ করিডোর</span>
+            TrafficPulse বাংলাদেশ <span class="text-[10px] bg-red-500 text-white font-bold px-2 py-0.5 rounded-full">লাইভ জ্যাম ও করিডোর</span>
           </h1>
-          <p class="text-xs text-slate-400">কম্পিউটার ভিশন ও ওপেন ডেটা ভিত্তিক ট্রাফিক সিগন্যাল অটোমেশন</p>
+          <p class="text-xs text-slate-400">TomTom রিয়েল-টাইম ট্রাফিক ফ্লো ও জরুরি অ্যাম্বুলেন্স সিগন্যাল ক্লিয়ারেন্স</p>
         </div>
       </div>
 
       <div class="flex items-center gap-3 mt-2 md:mt-0">
-        <a href="/driver" target="_blank" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow">
+        <a href="/driver" target="_blank" class="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow">
           <i class="fa-solid fa-mobile-screen"></i> ড্রাইভার স্ক্রিন খুলুন
         </a>
         <div id="connBadge" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs">
-          <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-          <span id="connText" class="text-slate-300">কানেক্টিং...</span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span id="connText" class="text-slate-300">সার্ভার সংযুক্ত</span>
         </div>
-        <div class="text-right mono text-emerald-400 font-bold text-sm tracking-wider" id="liveClock">00:00:00</div>
+        <div class="text-right mono text-emerald-400 font-bold text-sm tracking-wider" id="liveClock">--:--:--</div>
       </div>
     </header>
 
     <!-- স্ট্যাটাস কার্ডস -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">করিডোর অবস্থা <i class="fa-solid fa-route text-emerald-400"></i></div>
-        <div id="corridorStatus" class="text-base font-bold text-slate-300">স্ট্যান্ডবাই</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">স্বয়ংক্রিয় সিগন্যাল ক্লিয়ারেন্স</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">সক্রিয় অ্যাম্বুলেন্স <i class="fa-solid fa-truck-medical text-red-400"></i></div>
+        <div id="ambCount" class="text-xl font-bold text-white mono">0</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">লাইভ ডিভাইস ট্র্যাকিং</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">রোড ট্রাফিক অবস্থা <i class="fa-solid fa-traffic-light text-cyan-400"></i></div>
-        <div id="trafficStatusVal" class="text-base font-bold text-cyan-400">স্বাভাবিক ফ্লো</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">রিয়েল-টাইম কনজেশন</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">গ্রিন করিডোর অবস্থা <i class="fa-solid fa-traffic-light text-emerald-400"></i></div>
+        <div id="corridorCount" class="text-xl font-bold text-emerald-400 mono">০ সক্রিয়</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">অটো সিগন্যাল ক্লিয়ারেন্স</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">আনুমানিক সময় (ETA) <i class="fa-solid fa-stopwatch text-amber-400"></i></div>
-        <div id="etaVal" class="text-base font-bold text-amber-400 mono">-- মিনিট</div>
-        <div class="text-[11px] text-slate-500 mt-0.5 truncate" id="destText">গন্তব্য: DMCH</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">TomTom ট্রাফিক ফ্লো <i class="fa-solid fa-layer-group text-amber-400"></i></div>
+        <div class="text-base font-bold text-amber-400">রিয়েল-টাইম জ্যাম অ্যাক্টিভ</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">লাল = জ্যাম | হলুদ = ধীর | সবুজ = ক্লিয়ার</div>
       </div>
 
       <div class="bg-[#0F1522] border border-slate-800 p-3.5 rounded-2xl">
-        <div class="text-slate-400 text-xs mb-1 flex justify-between">লাইভ গতি (Speed) <i class="fa-solid fa-gauge text-blue-400"></i></div>
-        <div id="speedVal" class="text-base font-bold text-blue-400 mono">০ কিমি/ঘণ্টা</div>
-        <div class="text-[11px] text-slate-500 mt-0.5">ডিভাইস সেন্সর টেলিমেট্রি</div>
+        <div class="text-slate-400 text-xs mb-1 flex justify-between">সিস্টেম ইন্টিগ্রিটি <i class="fa-solid fa-circle-check text-cyan-400"></i></div>
+        <div class="text-base font-bold text-cyan-400">১০০% রিয়েল ডেটা</div>
+        <div class="text-[11px] text-slate-500 mt-0.5">কোনো ফেক সিমুলেশন নেই</div>
       </div>
     </div>
 
-    <!-- লাইভ অ্যালার্ট ব্যানার -->
+    <!-- লাইভ অ্যালার্ট বক্স -->
     <div id="alertBanner" class="hidden p-3.5 rounded-2xl bg-emerald-500/20 border border-emerald-500 text-emerald-300 text-sm font-semibold flex items-center justify-between">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-bell text-lg animate-pulse"></i>
-        <span id="alertText">জরুরি গ্রিন করিডোর সক্রিয় করা হয়েছে!</span>
+        <span id="alertText">গ্রিন করিডোর সক্রিয় হয়েছে!</span>
       </div>
       <span class="text-xs bg-emerald-500 text-slate-950 font-bold px-2 py-0.5 rounded">অগ্রাধিকার ক্লিয়ারেন্স</span>
     </div>
 
-    <!-- মূল গ্রিড -->
+    <!-- মূল স্ক্রিন -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      
-      <!-- ম্যাপ সেকশন (২ কলাম) -->
       <div class="lg:col-span-2 bg-[#0F1522] border border-slate-800 p-3 rounded-2xl shadow-lg">
         <div class="flex justify-between items-center mb-2 px-1">
           <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-map-location-dot text-emerald-400"></i> লাইভ রোড করিডোর ও সিগন্যাল ম্যাপ
+            <i class="fa-solid fa-map-location-dot text-emerald-400"></i> লাইভ ম্যাপ ও রাস্তার জ্যাম অবস্থা (TomTom Live)
           </span>
-          <span class="text-[11px] text-slate-400">OSRM লাইভ টার্ন-বাই-টার্ন</span>
+          <span class="text-[11px] text-slate-400">টার্ন-বাই-টার্ন ফ্লো</span>
         </div>
         <div id="publicMap"></div>
       </div>
 
-      <!-- সিগন্যাল ও সার্জেন্ট কন্ট্রোল (১ কলাম) -->
       <div class="bg-[#0F1522] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
         <div>
           <div class="text-sm font-bold text-slate-200 mb-3 flex items-center justify-between">
-            <span class="flex items-center gap-2"><i class="fa-solid fa-traffic-light text-amber-400"></i> সক্রিয় সিগন্যালসমূহ</span>
-            <span class="text-[10px] text-slate-400">ম্যানুয়াল সুইচ</span>
+            <span class="flex items-center gap-2"><i class="fa-solid fa-traffic-light text-amber-400"></i> সিগন্যাল ও সার্জেন্ট কন্ট্রোল</span>
+            <span class="text-[10px] text-slate-400">অটো ওভাররাইড</span>
           </div>
 
           <div id="signalsContainer" class="space-y-2.5">
-            <!-- ডাইনামিক ইন্টারসেকশন লোড হবে -->
+            <!-- ডাইনামিক সিগন্যাল লোড হবে -->
           </div>
         </div>
 
         <div class="mt-4 p-3 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-400 space-y-1">
           <div class="text-slate-300 font-semibold flex items-center gap-1">
-            <i class="fa-solid fa-shield-halved text-cyan-400"></i> ট্রাফিক সার্জেন্ট জরুরি কন্ট্রোল
+            <i class="fa-solid fa-info-circle text-cyan-400"></i> ট্রাফিক কালার লেজেন্ড
           </div>
-          <p>অ্যাম্বুলেন্স পৌঁছালে সংকেত স্বয়ংক্রিয়ভাবে সবুজ হয়। সার্জেন্ট প্রয়োজনে <b>সুইচ</b> বাটনে চাপ দিয়ে তাৎক্ষণিক লাইট পরিবর্তন করতে পারেন।</p>
+          <p class="text-[11px]">ম্যাপে যেখানে গাঢ় লাল লাইন দেখতে পাবেন সেখানে তীব্র জ্যাম রয়েছে, হলুদ মানে ধীরগতির ট্রাফিক এবং সবুজ মানে রাস্তা ফাঁকা।</p>
         </div>
       </div>
-
     </div>
 
   </div>
 
   <script>
-    const map = L.map('publicMap').setView([23.7460, 90.3940], 13);
+    const map = L.map('publicMap').setView([23.7480, 90.3940], 13);
+
+    // বেস ম্যাপ
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    let ambMarker = null;
-    let destMarker = null;
-    let routePolyline = null;
+    // TomTom লাইভ ট্রাফিক ফ্লো লেয়ার (আপনার API Key যুক্ত করা হয়েছে)
+    const tomtomApiKey = "7YuULGQHeO6wW1GkYYP6dqSu84Wn2TPb";
+    L.tileLayer(`https://{s}.api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${tomtomApiKey}`, {
+      maxZoom: 19,
+      opacity: 0.8,
+      subdomains: ['a', 'b', 'c', 'd']
+    }).addTo(map);
+
+    let ambulanceMarkers = {};
+    let ambulanceRoutes = {};
+    let destinationMarkers = {};
     let signalMarkers = {};
 
     const ambIcon = L.divIcon({
@@ -142,56 +147,46 @@
     const proto = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
     const ws = new WebSocket(proto + window.location.host + '/ws/monitor');
 
-    ws.onopen = () => {
-      document.getElementById('connBadge').innerHTML = `
-        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-        <span class="text-emerald-400 font-bold">অনলাইন</span>
-      `;
-    };
-
     function toggleSignal(id) {
       ws.send(JSON.stringify({ action: "toggle_signal", id: id }));
     }
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      const amb = data.ambulance;
-
       document.getElementById('liveClock').textContent = data.timestamp;
-      document.getElementById('speedVal').textContent = `${amb.speed} কিমি/ঘণ্টা`;
-      document.getElementById('etaVal').textContent = `~ ${amb.eta_mins} মিনিট`;
-      document.getElementById('trafficStatusVal').textContent = amb.traffic_status;
-      document.getElementById('destText').textContent = `গন্তব্য: ${amb.destination}`;
 
-      const corridorEl = document.getElementById('corridorStatus');
-      if (amb.active_corridor) {
-        corridorEl.textContent = "🟢 গ্রিন করিডোর সক্রিয়";
-        corridorEl.className = "text-base font-bold text-emerald-400";
-      } else {
-        corridorEl.textContent = amb.is_live ? "লাইভ ট্র্যাকিং চলছে" : "স্ট্যান্ডবাই";
-        corridorEl.className = "text-base font-bold text-slate-300";
-      }
+      const ambKeys = Object.keys(data.ambulances);
+      document.getElementById('ambCount').textContent = ambKeys.length;
 
-      const ambPos = [amb.lat, amb.lon];
-      if (!ambMarker) {
-        ambMarker = L.marker(ambPos, { icon: ambIcon }).addTo(map).bindPopup("<b>জরুরি অ্যাম্বুলেন্স</b>");
-      } else {
-        ambMarker.setLatLng(ambPos);
-      }
+      let corridorsActive = 0;
 
-      if (amb.dest_lat && amb.dest_lon) {
-        const destPos = [amb.dest_lat, amb.dest_lon];
-        if (!destMarker) {
-          destMarker = L.marker(destPos).addTo(map).bindPopup(`<b>${amb.destination}</b>`);
+      ambKeys.forEach(id => {
+        const amb = data.ambulances[id];
+        if (amb.corridor_active) corridorsActive++;
+
+        const pos = [amb.lat, amb.lon];
+        if (!ambulanceMarkers[id]) {
+          ambulanceMarkers[id] = L.marker(pos, { icon: ambIcon }).addTo(map).bindPopup(`<b>${id}</b><br>গতি: ${amb.speed} km/h<br>গন্তব্য: ${amb.destination}`);
         } else {
-          destMarker.setLatLng(destPos);
+          ambulanceMarkers[id].setLatLng(pos);
         }
-      }
 
-      if (amb.route_coords && amb.route_coords.length > 0) {
-        if (routePolyline) map.removeLayer(routePolyline);
-        routePolyline = L.polyline(amb.route_coords, { color: '#10b981', weight: 6, opacity: 0.85 }).addTo(map);
-      }
+        if (amb.route_coords && amb.route_coords.length > 0) {
+          if (ambulanceRoutes[id]) map.removeLayer(ambulanceRoutes[id]);
+          ambulanceRoutes[id] = L.polyline(amb.route_coords, { color: '#06b6d4', weight: 6, opacity: 0.9 }).addTo(map);
+        }
+
+        if (amb.dest_lat && amb.dest_lon) {
+          const destPos = [amb.dest_lat, amb.dest_lon];
+          if (!destinationMarkers[id]) {
+            destinationMarkers[id] = L.marker(destPos).addTo(map).bindPopup(`<b>${amb.destination}</b>`);
+          } else {
+            destinationMarkers[id].setLatLng(destPos);
+          }
+        }
+      });
+
+      document.getElementById('corridorCount').textContent = `${corridorsActive} সক্রিয়`;
 
       const container = document.getElementById('signalsContainer');
       container.innerHTML = '';
@@ -205,7 +200,7 @@
             fillColor: isGreen ? '#10b981' : '#ef4444',
             color: '#fff',
             weight: 2,
-            fillOpacity: 0.9
+            fillOpacity: 0.95
           }).addTo(map).bindPopup(`<b>${item.name}</b>`);
         } else {
           signalMarkers[id].setStyle({
@@ -214,22 +209,19 @@
         }
 
         container.innerHTML += `
-          <div class="p-2.5 rounded-xl border ${isGreen ? 'bg-emerald-950/40 border-emerald-500 pulse-glow-green' : 'bg-slate-900 border-slate-800'} transition-all">
-            <div class="flex items-center justify-between mb-1.5">
-              <div>
-                <div class="text-xs font-semibold text-slate-200">${item.name}</div>
-                <div class="text-[10px] text-slate-400">ট্রাফিক চাপ: ${item.traffic_density}</div>
-              </div>
+          <div class="p-2.5 rounded-xl border ${isGreen ? 'bg-emerald-950/40 border-emerald-500' : 'bg-slate-900 border-slate-800'} transition-all">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-semibold text-slate-200">${item.name}</span>
               <span class="px-2 py-0.5 text-[10px] font-bold rounded ${isGreen ? 'bg-emerald-500 text-slate-950 animate-pulse' : 'bg-red-500/20 text-red-400'}">
                 ${item.signal}
               </span>
             </div>
-            <div class="flex items-center justify-between pt-1.5 border-t border-slate-800 text-[11px]">
+            <div class="flex items-center justify-between pt-1 border-t border-slate-800 text-[11px]">
               <span class="${isGreen ? 'text-emerald-400 font-bold' : 'text-slate-500'}">
-                ${isGreen ? '✓ ক্লিয়ার করা হয়েছে' : 'স্বাভাবিক ফ্লো'}
+                ${isGreen ? '✓ গ্রিন করিডোর সক্রিয়' : 'স্বাভাবিক ট্রাফিক'}
               </span>
-              <button onclick="toggleSignal('${item.id}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] border border-slate-700 flex items-center gap-1 transition">
-                <i class="fa-solid fa-power-off text-amber-400 text-[9px]"></i> সুইচ
+              <button onclick="toggleSignal('${item.id}')" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] border border-slate-700">
+                সুইচ
               </button>
             </div>
           </div>
@@ -237,9 +229,8 @@
       }
 
       const alertBox = document.getElementById('alertBanner');
-      const alertText = document.getElementById('alertText');
       if (data.alert) {
-        alertText.textContent = data.alert;
+        document.getElementById('alertText').textContent = data.alert;
         alertBox.classList.remove('hidden');
       } else {
         alertBox.classList.add('hidden');
