@@ -8,10 +8,11 @@ from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-app = FastAPI(title="TrafficPulse ITS Core", docs_url=None, redoc_url=None)
+app = FastAPI(title="TrafficPulse ITS Core with V2X & Audit Engine", docs_url=None, redoc_url=None)
 
 connected_monitors = set()
 connected_sergeants = set()
+connected_civilians = set()
 active_ambulances = {}
 incident_logs = []
 traffic_nodes = {}
@@ -28,7 +29,7 @@ CONDITION_SCORES = {
 def get_live_traffic_flow(lat, lon):
     try:
         url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point={lat},{lon}&unit=KMPH&key={TOMTOM_KEY}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/9.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             flow = data.get("flowSegmentData", {})
@@ -57,7 +58,7 @@ def query_osm_intersections(lat, lon):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     nodes = {}
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/9.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             elements = data.get("elements", [])
@@ -77,6 +78,8 @@ def query_osm_intersections(lat, lon):
                     "granted_unit": None,
                     "speed": cur_spd,
                     "status": flow_status,
+                    "clearance_sec": 0,
+                    "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
                     "violations": []
                 }
     except Exception:
@@ -100,6 +103,8 @@ def query_osm_intersections(lat, lon):
                 "granted_unit": None,
                 "speed": 28,
                 "status": "Operational",
+                "clearance_sec": 0,
+                "billboard_msg": "MAINTAIN POSTED SPEED - DRIVE SAFELY",
                 "violations": []
             }
     return nodes
@@ -116,7 +121,7 @@ def query_osm_hospitals(lat, lon, condition="General"):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     hospitals = []
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/9.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             for idx, el in enumerate(data.get("elements", [])):
@@ -153,7 +158,7 @@ def query_osm_hospitals(lat, lon, condition="General"):
 def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
     try:
         url = f"https://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson&steps=true"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/9.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/10.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get("routes"):
@@ -177,7 +182,7 @@ def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
 
 async def broadcast_status(payload: dict):
     msg = json.dumps(payload)
-    for ws in list(connected_monitors | connected_sergeants):
+    for ws in list(connected_monitors | connected_sergeants | connected_civilians):
         try:
             await ws.send_text(msg)
         except Exception:
@@ -198,6 +203,12 @@ def serve_driver():
 @app.get("/sergeant")
 def serve_sergeant():
     path = os.path.join(os.path.dirname(__file__), "templates", "sergeant.html")
+    with open(path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+@app.get("/civilian")
+def serve_civilian():
+    path = os.path.join(os.path.dirname(__file__), "templates", "civilian.html")
     with open(path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
@@ -246,6 +257,22 @@ async def sergeant_socket(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         connected_sergeants.discard(ws)
+
+@app.websocket("/ws/civilian")
+async def civilian_socket(ws: WebSocket):
+    await ws.accept()
+    connected_civilians.add(ws)
+    await ws.send_text(json.dumps({
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "ambulances": active_ambulances,
+        "intersections": traffic_nodes,
+        "v2x_alert": None
+    }))
+    try:
+        while True:
+            await ws.receive_text()
+    except WebSocketDisconnect:
+        connected_civilians.discard(ws)
 
 @app.websocket("/ws/driver")
 async def driver_socket(ws: WebSocket):
@@ -306,6 +333,7 @@ async def driver_socket(ws: WebSocket):
             }
 
             system_alert = None
+            v2x_civilian_alert = None
             if sos:
                 system_alert = f"CRITICAL: {driver_id} has broadcast an emergency SOS packet."
 
@@ -313,33 +341,48 @@ async def driver_socket(ws: WebSocket):
                 approaching = []
                 for amb_id, amb in active_ambulances.items():
                     d = math.hypot(amb["lat"] - node["lat"], amb["lon"] - node["lon"])
-                    if d < 0.0040:
-                        approaching.append((amb_id, amb["priority_score"], amb["condition"]))
+                    # ৫০০ মিটারের ভেতর এলে V2X অ্যালার্ট ট্রিগার
+                    if d < 0.0050:
+                        approaching.append((amb_id, amb["priority_score"], amb["condition"], d))
 
                 if len(approaching) > 1:
                     approaching.sort(key=lambda x: x[1], reverse=True)
-                    winning_id, _, winning_cond = approaching[0]
+                    winning_id, _, winning_cond, win_dist = approaching[0]
                     node["signal"] = "GREEN"
                     node["corridor_active"] = True
                     node["granted_unit"] = winning_id
+                    node["clearance_sec"] = node.get("clearance_sec", 0) + 3
+                    node["billboard_msg"] = f"EMERGENCY VEHICLE APPROACHING ({winning_id}) - CLEAR LANE 1"
                     active_ambulances[winning_id]["corridor_active"] = True
 
-                    for losing_id, _, _ in approaching[1:]:
+                    for losing_id, _, _, _ in approaching[1:]:
                         active_ambulances[losing_id]["preemption_hold"] = True
                         active_ambulances[losing_id]["corridor_active"] = False
 
                     system_alert = f"Preemption Conflict: {node['name']} cleared for {winning_id} [{winning_cond}]."
+                    v2x_civilian_alert = {
+                        "node": node["name"],
+                        "message": f"EMERGENCY VEHICLE APPROACHING ({winning_id}) - CLEAR LANE 1",
+                        "distance_m": round(win_dist * 111000)
+                    }
                 elif len(approaching) == 1:
-                    unit_id = approaching[0][0]
+                    unit_id, _, _, unit_dist = approaching[0]
                     node["signal"] = "GREEN"
                     node["corridor_active"] = True
                     node["granted_unit"] = unit_id
+                    node["clearance_sec"] = node.get("clearance_sec", 0) + 3
+                    node["billboard_msg"] = f"EMERGENCY VEHICLE APPROACHING - CLEAR LANE 1"
                     active_ambulances[unit_id]["corridor_active"] = True
                     active_ambulances[unit_id]["preemption_hold"] = False
                     if not system_alert:
                         system_alert = f"Green Corridor Preemption: {node['name']} cleared."
+                    v2x_civilian_alert = {
+                        "node": node["name"],
+                        "message": "EMERGENCY VEHICLE APPROACHING - CLEAR LANE 1",
+                        "distance_m": round(unit_dist * 111000)
+                    }
 
-                    if random.random() < 0.25 and len(node["violations"]) < 3:
+                    if random.random() < 0.25 and len(node["violations"]) < 4:
                         node["violations"].append({
                             "plate": f"DHK-{random.randint(11, 48)}-{random.randint(1000, 9999)}",
                             "time": datetime.now().strftime("%H:%M:%S"),
@@ -350,6 +393,7 @@ async def driver_socket(ws: WebSocket):
                         node["signal"] = "RED"
                         node["corridor_active"] = False
                         node["granted_unit"] = None
+                        node["billboard_msg"] = "MAINTAIN POSTED SPEED - DRIVE SAFELY"
 
             time_saved = max(2, round(dist_km * 1.6))
             incident_logs.append({
@@ -371,7 +415,8 @@ async def driver_socket(ws: WebSocket):
                 "ambulances": active_ambulances,
                 "intersections": traffic_nodes,
                 "incident_logs": incident_logs,
-                "alert": system_alert
+                "alert": system_alert,
+                "v2x_alert": v2x_civilian_alert
             })
 
     except WebSocketDisconnect:
@@ -382,5 +427,6 @@ async def driver_socket(ws: WebSocket):
                 "ambulances": active_ambulances,
                 "intersections": traffic_nodes,
                 "incident_logs": incident_logs,
-                "alert": f"Unit {driver_id} disconnected from network."
+                "alert": f"Unit {driver_id} disconnected from network.",
+                "v2x_alert": None
             })
