@@ -4,12 +4,44 @@ import os
 import random
 import urllib.parse
 import urllib.request
+from collections import deque
 from datetime import datetime
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-app = FastAPI(title="TrafficPulse ITS Core", docs_url=None, redoc_url=None)
+app = FastAPI(title="TrafficPulse ITS Core with V2X & Analytics", docs_url=None, redoc_url=None)
 
+# ----------------- Secret Visitor Analytics Engine -----------------
+visitor_logs = deque(maxlen=60)
+total_visit_count = 0
+ADMIN_SECRET_PIN = "1234"  # Apnar secret PIN (iccha hole change korte paren)
+
+@app.middleware("http")
+async def track_visitors(request: Request, call_next):
+    global total_visit_count
+    path = request.url.path
+    
+    # Specific targeted routes track kora
+    if path in ["/", "/driver", "/civilian", "/sergeant"]:
+        total_visit_count += 1
+        client_ip = request.headers.get("x-forwarded-for") or (request.client.host if request.client else "Unknown")
+        if "," in client_ip:
+            client_ip = client_ip.split(",")[0].strip()
+            
+        user_agent = request.headers.get("user-agent", "Unknown")
+        device = "📱 Mobile" if any(x in user_agent.lower() for x in ["android", "iphone", "mobile"]) else "💻 PC/Desktop"
+        
+        visitor_logs.appendleft({
+            "ip": client_ip,
+            "page": path,
+            "device": device,
+            "time": datetime.now().strftime("%I:%M:%S %p, %d %b %Y")
+        })
+
+    response = await call_next(request)
+    return response
+
+# ----------------- Global Variables & Connections -----------------
 connected_monitors = set()
 connected_sergeants = set()
 connected_civilians = set()
@@ -26,10 +58,11 @@ CONDITION_SCORES = {
     "General": 40
 }
 
+# ----------------- Live Traffic & Geospatial Engines -----------------
 def get_live_traffic_flow(lat, lon):
     try:
         url = f"https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point={lat},{lon}&unit=KMPH&key={TOMTOM_KEY}"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/13.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/14.0'})
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             flow = data.get("flowSegmentData", {})
@@ -58,7 +91,7 @@ def query_osm_intersections(lat, lon):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     nodes = {}
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/13.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/14.0'})
         with urllib.request.urlopen(req, timeout=3.5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             elements = data.get("elements", [])
@@ -121,7 +154,7 @@ def query_osm_hospitals(lat, lon, condition="General"):
     url = "https://overpass-api.de/api/interpreter?data=" + urllib.parse.quote(query)
     hospitals = []
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/13.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/14.0'})
         with urllib.request.urlopen(req, timeout=3.5) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             for idx, el in enumerate(data.get("elements", [])):
@@ -158,7 +191,7 @@ def query_osm_hospitals(lat, lon, condition="General"):
 def get_osrm_driving_path(start_lat, start_lon, end_lat, end_lon):
     try:
         url = f"https://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson&steps=true"
-        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/13.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'TrafficPulse-ITS/14.0'})
         with urllib.request.urlopen(req, timeout=4) as resp:
             data = json.loads(resp.read().decode('utf-8'))
             if data.get("routes"):
@@ -188,6 +221,7 @@ async def broadcast_status(payload: dict):
         except Exception:
             pass
 
+# ----------------- Route Endpoints -----------------
 @app.get("/")
 def serve_monitor():
     path = os.path.join(os.path.dirname(__file__), "templates", "index.html")
@@ -212,6 +246,100 @@ def serve_civilian():
     with open(path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
+# ----------------- Secret Visitor Analytics View -----------------
+@app.get("/admin-analytics")
+def get_analytics(pin: str = ""):
+    if pin != ADMIN_SECRET_PIN:
+        return HTMLResponse(
+            content="""
+            <body style='background:#0b0f19;color:#ef4444;font-family:sans-serif;text-align:center;padding:60px;'>
+                <div style='max-width:380px;margin:auto;background:#131b2e;padding:30px;border-radius:16px;border:1px solid #1e293b;box-shadow:0 10px 25px rgba(0,0,0,0.5);'>
+                    <h2 style='margin-top:0;'>🔒 Access Denied</h2>
+                    <p style='color:#94a3b8;font-size:13px;'>Enter your secret administrator PIN to inspect visitors.</p>
+                    <form method='get' style='margin-top:20px;'>
+                        <input type='password' name='pin' placeholder='Secret PIN' style='width:80%;padding:10px;border-radius:8px;border:1px solid #334155;background:#090D15;color:#fff;text-align:center;font-size:16px;outline:none;'>
+                        <br><br>
+                        <button type='submit' style='padding:10px 24px;border-radius:8px;background:#2563eb;color:#fff;border:none;font-weight:bold;cursor:pointer;font-size:14px;'>Unlock Panel</button>
+                    </form>
+                </div>
+            </body>
+            """,
+            status_code=403
+        )
+
+    rows = ""
+    for log in visitor_logs:
+        rows += f"""
+        <tr style='border-bottom: 1px solid #1e293b;'>
+            <td style='padding: 12px; color: #38bdf8; font-family: monospace; font-weight: bold;'>{log['ip']}</td>
+            <td style='padding: 12px; font-weight: bold; color: #facc15;'>{log['page']}</td>
+            <td style='padding: 12px;'>{log['device']}</td>
+            <td style='padding: 12px; color: #94a3b8; font-size: 12px;'>{log['time']}</td>
+        </tr>
+        """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+        <title>TrafficPulse - Secret Visitor Analytics</title>
+        <style>
+            body {{ background: #080B11; color: #f1f5f9; font-family: 'Inter', sans-serif; padding: 25px; margin: 0; }}
+            .card {{ background: #0F1522; border: 1px solid #1e293b; border-radius: 14px; padding: 20px; margin-bottom: 20px; }}
+            table {{ width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }}
+            th {{ background: #131b2e; padding: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 11px; }}
+        </style>
+    </head>
+    <body>
+        <div style='max-width: 950px; margin: auto;'>
+            <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;'>
+                <div>
+                    <h2 style='margin:0; color:#fff;'>📊 Live TrafficPulse Visitor Analytics</h2>
+                    <p style='margin:4px 0 0; color:#64748b; font-size: 13px;'>Real-time tracking of unique visitors, devices, and accessed views</p>
+                </div>
+                <button onclick='location.reload()' style='background:#10b981; color:#000; font-weight:bold; border:none; padding:9px 18px; border-radius:8px; cursor:pointer;'>🔄 Refresh Feed</button>
+            </div>
+
+            <div class='card' style='display:flex; gap: 20px;'>
+                <div style='flex:1;'>
+                    <div style='color:#64748b; font-size: 12px; font-weight: bold;'>TOTAL PAGE HITS</div>
+                    <div style='font-size: 32px; font-weight: 800; color: #10b981; font-family: monospace; margin-top: 4px;'>{total_visit_count}</div>
+                </div>
+                <div style='flex:1;'>
+                    <div style='color:#64748b; font-size: 12px; font-weight: bold;'>ACTIVE MEMORY LOGS</div>
+                    <div style='font-size: 32px; font-weight: 800; color: #38bdf8; font-family: monospace; margin-top: 4px;'>{len(visitor_logs)}</div>
+                </div>
+                <div style='flex:1;'>
+                    <div style='color:#64748b; font-size: 12px; font-weight: bold;'>LIVE UNITS ONLINE</div>
+                    <div style='font-size: 32px; font-weight: 800; color: #f43f5e; font-family: monospace; margin-top: 4px;'>{len(active_ambulances)}</div>
+                </div>
+            </div>
+
+            <div class='card'>
+                <h3 style='margin-top:0; font-size: 15px;'>Recent Network Visitors</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Client IP</th>
+                            <th>Target Page</th>
+                            <th>Client Device</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows or "<tr><td colspan='4' style='padding:20px; text-align:center; color:#64748b;'>No visits logged yet in current session.</td></tr>"}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+# ----------------- WebSockets -----------------
 @app.websocket("/ws/monitor")
 async def monitor_socket(ws: WebSocket):
     await ws.accept()
@@ -296,7 +424,6 @@ async def driver_socket(ws: WebSocket):
 
             hospitals = query_osm_hospitals(lat, lon, condition)
 
-            # গন্তব্য লকিং লজিক: ক্লায়েন্ট যদি স্পষ্ট dest_lat এবং dest_lon পাঠায়, সেটাই এক্স্যাক্ট ব্যবহার হবে
             if data.get("dest_lat") is not None and data.get("dest_lon") is not None:
                 dest_lat = float(data["dest_lat"])
                 dest_lon = float(data["dest_lon"])
