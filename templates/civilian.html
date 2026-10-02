@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap');
+    body { font-family: 'Hind Siliguri', 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
   </style>
 </head>
@@ -24,17 +24,22 @@
           <i class="fa-solid fa-satellite"></i>
         </div>
         <div>
-          <div class="text-xs font-semibold text-white">CIVILIAN V2X BROADCAST</div>
-          <div class="text-[10px] text-slate-500">Public Safety Notification System</div>
+          <div class="text-xs font-semibold text-white" data-i18n="civ_title">CIVILIAN V2X BROADCAST</div>
+          <div class="text-[10px] text-slate-500" data-i18n="civ_sub">পাবলিক সেফটি নোটিফিকেশন সিস্টেম</div>
         </div>
       </div>
-      <div class="mono text-xs font-medium text-emerald-400" id="timeTick">--:--:--</div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleLanguage()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold text-xs rounded border border-cyan-500/40">
+          <span id="langLabel">ENG</span>
+        </button>
+        <div class="mono text-xs font-medium text-emerald-400" id="timeTick">--:--:--</div>
+      </div>
     </div>
 
     <!-- নোটিফিকেশন অনুমোদন কার্ড -->
     <div id="permCard" class="p-2.5 rounded-xl bg-blue-950/60 border border-blue-500/40 flex justify-between items-center text-xs">
-      <span class="text-blue-200"><i class="fa-solid fa-bell text-blue-400 mr-1.5"></i> লাইভ পুশ নোটিফিকেশন চালু করুন:</span>
-      <button onclick="requestNotificationAccess()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-[11px] shadow">
+      <span class="text-blue-200"><i class="fa-solid fa-bell text-blue-400 mr-1.5"></i> <span data-i18n="perm_text">লাইভ পুশ নোটিফিকেশন চালু করুন:</span></span>
+      <button onclick="requestNotificationAccess()" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-[11px] shadow" data-i18n="btn_allow">
         অনুমতি দিন
       </button>
     </div>
@@ -44,12 +49,12 @@
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-triangle-exclamation text-rose-400 text-3xl"></i>
         <div>
-          <div class="text-xs font-bold text-white uppercase tracking-wider">জরুরি অ্যাম্বুলেন্স আসছে (INBOUND)</div>
+          <div class="text-xs font-bold text-white uppercase tracking-wider" data-i18n="alert_inbound">জরুরি অ্যাম্বুলেন্স আসছে (INBOUND)</div>
           <div class="text-sm font-extrabold text-rose-300" id="v2xMessage">লেন ১ অবিলম্বে খালি করুন!</div>
         </div>
       </div>
       <div class="flex justify-between items-center text-[11px] pt-2 border-t border-rose-800/80">
-        <span class="text-slate-300">ইন্টারসেকশন: <b id="v2xSector" class="text-white">মোড়</b></span>
+        <span class="text-slate-300"><span data-i18n="lbl_intersection">ইন্টারসেকশন</span>: <b id="v2xSector" class="text-white">মোড়</b></span>
         <span class="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-[10px]" id="v2xDistance">~৩৫০ মি.</span>
       </div>
     </div>
@@ -57,17 +62,59 @@
     <!-- Active Intersection V2X Overhead Display -->
     <div class="bg-[#131b2e] border border-slate-800 p-3 rounded-xl space-y-2">
       <div class="flex justify-between items-center">
-        <span class="text-xs font-semibold text-slate-400">Electronic Variable Message Signs in Range</span>
-        <span class="text-[10px] text-emerald-400 mono">● লাইভ V2MS</span>
+        <span class="text-xs font-semibold text-slate-400" data-i18n="vms_list_title">Electronic Variable Message Signs in Range</span>
+        <span class="text-[10px] text-emerald-400 mono">● V2MS</span>
       </div>
       <div id="v2xNodes" class="space-y-2">
-        <div class="text-slate-500 text-xs italic py-2 text-center">সার্ভার থেকে ট্রাফিক সাইনবোর্ড লোড হচ্ছে...</div>
+        <div class="text-slate-500 text-xs italic py-2 text-center" data-i18n="connecting">সার্ভার থেকে ট্রাফিক সাইনবোর্ড লোড হচ্ছে...</div>
       </div>
     </div>
 
   </div>
 
   <script>
+    const civTranslations = {
+      bn: {
+        civ_title: "সিভিলিয়ান V2X ব্রডকাস্ট",
+        civ_sub: "পাবলিক সেফটি নোটিফিকেশন সিস্টেম",
+        perm_text: "লাইভ পুশ নোটিফিকেশন চালু করুন:",
+        btn_allow: "অনুমতি দিন",
+        alert_inbound: "জরুরি অ্যাম্বুলেন্স আসছে (INBOUND)",
+        lbl_intersection: "ইন্টারসেকশন",
+        vms_list_title: "নিকটস্থ ইলেকট্রনিক ট্রাফিক সাইনবোর্ড",
+        connecting: "সার্ভার থেকে ট্রাফিক সাইনবোর্ড লোড হচ্ছে..."
+      },
+      en: {
+        civ_title: "CIVILIAN V2X BROADCAST",
+        civ_sub: "Public Safety Notification System",
+        perm_text: "Enable Live Push Notifications:",
+        btn_allow: "Allow",
+        alert_inbound: "EMERGENCY VEHICLE INBOUND",
+        lbl_intersection: "Intersection",
+        vms_list_title: "Electronic Variable Message Signs in Range",
+        connecting: "Connecting to municipal traffic grid..."
+      }
+    };
+
+    let currentLang = localStorage.getItem('tp_lang') || 'bn';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('tp_lang', lang);
+      document.getElementById('langLabel').textContent = lang === 'bn' ? 'ENG' : 'বাং';
+
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (civTranslations[lang][key]) {
+          el.textContent = civTranslations[lang][key];
+        }
+      });
+    }
+
+    function toggleLanguage() {
+      setLanguage(currentLang === 'bn' ? 'en' : 'bn');
+    }
+
     let notificationPermissionGranted = false;
 
     function requestNotificationAccess() {
@@ -76,8 +123,8 @@
           if (permission === "granted") {
             notificationPermissionGranted = true;
             document.getElementById('permCard').classList.add('hidden');
-            new Notification("TrafficPulse V2X সক্রিয়", {
-              body: "অ্যাম্বুলেন্স আসার ৫০০ মিটার আগেই আপনি সতর্কবার্তা পাবেন।",
+            new Notification("TrafficPulse V2X Active", {
+              body: currentLang === 'bn' ? "অ্যাম্বুলেন্স আসার ৫০০ মিটার আগেই আপনি সতর্কবার্তা পাবেন।" : "Preemption alerts armed for 500m radius.",
               icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
             });
           }
@@ -138,7 +185,7 @@
       if (data.v2x_alert) {
         document.getElementById('v2xMessage').textContent = data.v2x_alert.message;
         document.getElementById('v2xSector').textContent = data.v2x_alert.node;
-        document.getElementById('v2xDistance').textContent = `~${data.v2x_alert.distance_m} মি. দূরে`;
+        document.getElementById('v2xDistance').textContent = `~${data.v2x_alert.distance_m}m`;
         alertBox.classList.remove('hidden');
 
         playAlertTone();
@@ -146,8 +193,8 @@
 
         const now = Date.now();
         if (notificationPermissionGranted && (now - lastAlertTime > 15000)) {
-          new Notification("🚨 জরুরি অ্যাম্বুলেন্স আসছে!", {
-            body: `${data.v2x_alert.node}-এ জরুরি অ্যাম্বুলেন্স আসছে। লেন ১ অবিলম্বে খালি করুন!`,
+          new Notification("🚨 EMERGENCY VEHICLE INBOUND", {
+            body: `${data.v2x_alert.node} - ${data.v2x_alert.message}`,
             icon: "https://cdn-icons-png.flaticon.com/512/1048/1048315.png"
           });
           lastAlertTime = now;
@@ -155,6 +202,10 @@
       } else {
         alertBox.classList.add('hidden');
       }
+    };
+
+    window.onload = () => {
+      setLanguage(currentLang);
     };
   </script>
 </body>

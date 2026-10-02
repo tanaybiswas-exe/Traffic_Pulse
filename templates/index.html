@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,8 +14,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&display=swap');
+    body { font-family: 'Hind Siliguri', 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
     .mono { font-family: 'JetBrains Mono', monospace; }
     #mainMap { height: 600px; width: 100%; border-radius: 0.75rem; z-index: 1; }
     .vms-display {
@@ -30,6 +30,7 @@
 <body class="p-3 md:p-5 antialiased">
   <div class="max-w-[1680px] mx-auto space-y-4">
     
+    <!-- Top Operations Header -->
     <header class="flex flex-wrap justify-between items-center bg-[#131b2e] border border-slate-800 p-4 rounded-xl shadow-lg">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xl border border-blue-500/30">
@@ -38,111 +39,120 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-lg font-semibold tracking-wide text-white">TRAFFICPULSE ITS</h1>
-            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium px-2 py-0.5 rounded">
-              OPERATIONAL
+            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium px-2 py-0.5 rounded" data-i18n="status_operational">
+              সক্রিয়
             </span>
           </div>
-          <p class="text-xs text-slate-400">Intelligent Transportation System - Dynamic Preemption Hub</p>
+          <p class="text-xs text-slate-400" data-i18n="sub_header">ইন্টেলিজেন্ট ট্রান্সপোর্টেশন সিস্টেম - পাবলিক V2X প্রি-এম্পশন হাব</p>
         </div>
       </div>
 
       <div class="flex items-center gap-2.5 mt-2 sm:mt-0">
+        <!-- Language Switcher -->
+        <button onclick="toggleLanguage()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/40 text-xs font-bold rounded-lg flex items-center gap-1.5 shadow transition">
+          <i class="fa-solid fa-language text-sm"></i> <span id="langLabel">ENG</span>
+        </button>
+
         <a href="/civilian" target="_blank" class="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-car"></i> Public V2X Feed
+          <i class="fa-solid fa-car"></i> <span data-i18n="nav_civilian">সিভিলিয়ান V2X</span>
         </a>
         <a href="/driver" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-satellite-dish text-blue-400"></i> Driver HUD
+          <i class="fa-solid fa-satellite-dish text-blue-400"></i> <span data-i18n="nav_driver">ড্রাইভার HUD</span>
         </a>
         <a href="/sergeant" target="_blank" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-shield-halved text-amber-400"></i> Sergeant
+          <i class="fa-solid fa-shield-halved text-amber-400"></i> <span data-i18n="nav_sergeant">সার্জেন্ট</span>
         </a>
         <button onclick="generateAuditReportPDF()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg shadow flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-file-pdf"></i> Download Audit PDF
+          <i class="fa-solid fa-file-pdf"></i> <span data-i18n="btn_pdf">অডিট PDF ডাউনলোড</span>
         </button>
         <div class="mono text-xs font-medium text-slate-300 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg" id="sysClock">--:--:--</div>
       </div>
     </header>
 
+    <!-- স্ট্যাটাস কার্ডস -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl">
         <div class="flex justify-between items-center text-slate-400 text-xs">
-          <span>Active Response Units</span>
+          <span data-i18n="card_amb_title">সক্রিয় জরুরি যান</span>
           <i class="fa-solid fa-truck-medical text-rose-400"></i>
         </div>
         <div id="unitCount" class="text-2xl font-bold text-white mono mt-1">0</div>
-        <div class="text-[11px] text-slate-500">Transmitting telemetry</div>
+        <div class="text-[11px] text-slate-500" data-i18n="card_amb_sub">লাইভ জিপিএস টেলিমেট্রি</div>
       </div>
 
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl">
         <div class="flex justify-between items-center text-slate-400 text-xs">
-          <span>Preemption Corridors</span>
+          <span data-i18n="card_corridor_title">গ্রিন করিডোর লক</span>
           <i class="fa-solid fa-road text-emerald-400"></i>
         </div>
-        <div id="corridorCount" class="text-2xl font-bold text-emerald-400 mono mt-1">0 Active</div>
-        <div class="text-[11px] text-slate-500">Signal locks engaged</div>
+        <div id="corridorCount" class="text-2xl font-bold text-emerald-400 mono mt-1">0 টি সক্রিয়</div>
+        <div class="text-[11px] text-slate-500" data-i18n="card_corridor_sub">স্বয়ংক্রিয় সিগন্যাল ক্লিয়ারেন্স</div>
       </div>
 
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl">
         <div class="flex justify-between items-center text-slate-400 text-xs">
-          <span>TomTom Traffic Layer</span>
+          <span data-i18n="card_traffic_title">টমটম ট্রাফিক স্তর</span>
           <i class="fa-solid fa-chart-simple text-blue-400"></i>
         </div>
         <div class="text-sm font-semibold text-blue-300 mt-2 flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-blue-400"></span> Live Relative Speed
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span> <span data-i18n="card_traffic_val">লাইভ গতি মনিটরিং</span>
         </div>
-        <div class="text-[11px] text-slate-500">Real-time Congestion Index</div>
+        <div class="text-[11px] text-slate-500" data-i18n="card_traffic_sub">রিয়েল-টাইম কনজেশন ইনডেক্স</div>
       </div>
 
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl">
         <div class="flex justify-between items-center text-slate-400 text-xs">
-          <span>ANPR Infractions Logged</span>
+          <span data-i18n="card_anpr_title">ANPR লঙ্ঘন শনাক্ত</span>
           <i class="fa-solid fa-video text-amber-400"></i>
         </div>
-        <div class="text-sm font-semibold text-amber-300 mt-2" id="violatorCount">0 Detected</div>
-        <div class="text-[11px] text-slate-500">Corridor Block Enforcement</div>
+        <div class="text-sm font-semibold text-amber-300 mt-2" id="violatorCount">0 টি গাড়ি</div>
+        <div class="text-[11px] text-slate-500" data-i18n="card_anpr_sub">করিডোর ব্লক ট্র্যাকিং</div>
       </div>
     </div>
 
-    <!-- Live V2X Overhead Billboard -->
+    <!-- লাইভ V2X ওভারহেড বিলবোর্ড -->
     <div class="vms-display p-3 rounded-xl flex items-center justify-between shadow-inner">
       <div class="flex items-center gap-3">
         <span class="w-3 h-3 rounded-full bg-amber-500 animate-ping"></span>
-        <span class="text-xs uppercase font-bold text-slate-400">OVERHEAD V2X DIGITAL BILLBOARD:</span>
+        <span class="text-xs uppercase font-bold text-slate-400" data-i18n="vms_title">ডিজিটাল ট্রাফিক বিলবোর্ড:</span>
         <span class="text-sm font-bold text-amber-400 tracking-wider" id="billboardText">MAINTAIN POSTED SPEED - DRIVE SAFELY</span>
       </div>
-      <span class="text-[10px] text-slate-500 uppercase mono">Variable Message System Active</span>
+      <span class="text-[10px] text-slate-500 uppercase mono" data-i18n="vms_active">V2MS সক্রিয়</span>
     </div>
 
+    <!-- অ্যালার্ট ব্যানার -->
     <div id="alertBanner" class="hidden p-3.5 rounded-xl bg-blue-950/60 border border-blue-500/40 text-blue-200 text-xs font-medium flex items-center justify-between">
       <div class="flex items-center gap-2.5">
         <i class="fa-solid fa-circle-exclamation text-blue-400"></i>
         <span id="alertText">Operational notice</span>
       </div>
-      <span class="text-[10px] bg-blue-500/20 text-blue-300 font-semibold px-2 py-0.5 rounded">SYSTEM EVENT</span>
+      <span class="text-[10px] bg-blue-500/20 text-blue-300 font-semibold px-2 py-0.5 rounded" data-i18n="badge_event">জরুরি ইভেন্ট</span>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      <!-- ম্যাপ -->
       <div class="lg:col-span-3 bg-[#131b2e] border border-slate-800 p-3 rounded-xl flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center mb-2 px-1">
             <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <i class="fa-solid fa-map-location-dot text-slate-400"></i> Real-time Incident & Preemption Map
+              <i class="fa-solid fa-map-location-dot text-slate-400"></i> <span data-i18n="map_title">লাইভ ট্রাফিক ও রিয়েল-টাইম প্রি-এম্পশন ম্যাপ</span>
             </span>
             <div class="flex items-center gap-3 text-[11px] text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded border border-slate-800">
-              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Flow</span>
-              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Moderate</span>
-              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Congestion</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> <span data-i18n="flow_clear">স্বাভাবিক</span></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> <span data-i18n="flow_mod">মাঝারি</span></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> <span data-i18n="flow_heavy">তীব্র জ্যাম</span></span>
             </div>
           </div>
           <div id="mainMap" class="border border-slate-800/80 shadow-inner"></div>
         </div>
       </div>
 
+      <!-- সাইডবার কন্ট্রোল প্যানেল -->
       <div class="bg-[#131b2e] border border-slate-800 p-3.5 rounded-xl flex flex-col justify-between space-y-4">
         <div>
           <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-semibold text-slate-300">
-            <span>Intersections in Sector</span>
-            <span class="text-[10px] text-slate-500">Manual Override</span>
+            <span data-i18n="panel_intersections">সেক্টরের ইন্টারসেকশনসমূহ</span>
+            <span class="text-[10px] text-slate-500" data-i18n="panel_override">ম্যানুয়াল সুইচ</span>
           </div>
 
           <div id="nodesContainer" class="space-y-2 max-h-[360px] overflow-y-auto pr-1"></div>
@@ -150,11 +160,13 @@
 
         <div class="p-3 bg-slate-900/70 border border-slate-800 rounded-lg text-xs space-y-2">
           <div class="flex justify-between items-center text-slate-300 font-semibold">
-            <span>Preemption Dispatch History</span>
-            <button onclick="generateAuditReportPDF()" class="text-[10px] text-blue-400 hover:underline"><i class="fa-solid fa-download"></i> Save PDF</button>
+            <span data-i18n="panel_audit">প্রি-এম্পশন অডিট হিস্ট্রি</span>
+            <button onclick="generateAuditReportPDF()" class="text-[10px] text-blue-400 hover:underline">
+              <i class="fa-solid fa-download"></i> <span data-i18n="btn_save_pdf">PDF সংরক্ষণ</span>
+            </button>
           </div>
           <div id="dispatchLogs" class="space-y-1.5 text-[11px] text-slate-400 max-h-36 overflow-y-auto">
-            <div class="text-slate-500 italic">No events recorded</div>
+            <div class="text-slate-500 italic" data-i18n="no_events">কোনো ইভেন্ট রেকর্ড হয়নি</div>
           </div>
         </div>
       </div>
@@ -163,6 +175,88 @@
   </div>
 
   <script>
+    // দ্বিভাষিক ডিকশনারি
+    const translations = {
+      bn: {
+        status_operational: "সক্রিয়",
+        sub_header: "ইন্টেলিজেন্ট ট্রান্সপোর্টেশন সিস্টেম - পাবলিক V2X প্রি-এম্পশন হাব",
+        nav_civilian: "সিভিলিয়ান V2X",
+        nav_driver: "ড্রাইভার HUD",
+        nav_sergeant: "সার্জেন্ট",
+        btn_pdf: "অডিট PDF ডাউনলোড",
+        card_amb_title: "সক্রিয় জরুরি যান",
+        card_amb_sub: "লাইভ জিপিএস টেলিমেট্রি",
+        card_corridor_title: "গ্রিন করিডোর লক",
+        card_corridor_sub: "স্বয়ংক্রিয় সিগন্যাল ক্লিয়ারেন্স",
+        card_traffic_title: "টমটম ট্রাফিক স্তর",
+        card_traffic_val: "লাইভ গতি মনিটরিং",
+        card_traffic_sub: "রিয়েল-টাইম কনজেশন ইনডেক্স",
+        card_anpr_title: "ANPR লঙ্ঘন শনাক্ত",
+        card_anpr_sub: "করিডোর ব্লক ট্র্যাকিং",
+        vms_title: "ডিজিটাল ট্রাফিক বিলবোর্ড:",
+        vms_active: "V2MS সক্রিয়",
+        badge_event: "জরুরি ইভেন্ট",
+        map_title: "লাইভ ট্রাফিক ও রিয়েল-টাইম প্রি-এম্পশন ম্যাপ",
+        flow_clear: "স্বাভাবিক",
+        flow_mod: "মাঝারি",
+        flow_heavy: "তীব্র জ্যাম",
+        panel_intersections: "সেক্টরের ইন্টারসেকশনসমূহ",
+        panel_override: "ম্যানুয়াল সুইচ",
+        panel_audit: "প্রি-এম্পশন অডিট হিস্ট্রি",
+        btn_save_pdf: "PDF সংরক্ষণ",
+        no_events: "কোনো ইভেন্ট রেকর্ড হয়নি"
+      },
+      en: {
+        status_operational: "OPERATIONAL",
+        sub_header: "Intelligent Transportation System - Public V2X Preemption Hub",
+        nav_civilian: "Public V2X",
+        nav_driver: "Driver HUD",
+        nav_sergeant: "Sergeant",
+        btn_pdf: "Download Audit PDF",
+        card_amb_title: "Active Response Units",
+        card_amb_sub: "Live GPS Telemetry",
+        card_corridor_title: "Preemption Corridors",
+        card_corridor_sub: "Automated Signal Clearance",
+        card_traffic_title: "TomTom Traffic Layer",
+        card_traffic_val: "Live Flow Monitoring",
+        card_traffic_sub: "Real-time Congestion Index",
+        card_anpr_title: "ANPR Infractions Logged",
+        card_anpr_sub: "Corridor Block Tracking",
+        vms_title: "V2X TRAFFIC BILLBOARD:",
+        vms_active: "V2MS ACTIVE",
+        badge_event: "SYSTEM EVENT",
+        map_title: "Real-time Preemption & Traffic Flow Map",
+        flow_clear: "Clear",
+        flow_mod: "Moderate",
+        flow_heavy: "Congestion",
+        panel_intersections: "Intersections in Sector",
+        panel_override: "Manual Override",
+        panel_audit: "Preemption Dispatch History",
+        btn_save_pdf: "Save PDF",
+        no_events: "No events recorded"
+      }
+    };
+
+    let currentLang = localStorage.getItem('tp_lang') || 'bn';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('tp_lang', lang);
+      document.getElementById('langLabel').textContent = lang === 'bn' ? 'ENG' : 'বাং';
+      
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+          el.textContent = translations[lang][key];
+        }
+      });
+    }
+
+    function toggleLanguage() {
+      setLanguage(currentLang === 'bn' ? 'en' : 'bn');
+    }
+
+    // Leaflet ম্যাপ
     const map = L.map('mainMap', { zoomControl: true }).setView([23.8500, 90.2600], 13);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -215,22 +309,20 @@
         if (amb.corridor_active) corridorsActive++;
 
         const pos = [amb.lat, amb.lon];
-        
-        // ব্যবহারকারীর রিয়েল লোকেশনে সেন্টারিং
         if (!autoCentered) {
           map.setView(pos, 14);
           autoCentered = true;
         }
 
-        let sosFlag = amb.sos ? `<div style="color: red; font-weight: bold;">SOS BROADCAST ACTIVE</div>` : '';
+        let sosFlag = amb.sos ? `<div style="color: red; font-weight: bold;">🚨 SOS ACTIVE</div>` : '';
 
         if (!vehicleMarkers[id]) {
           vehicleMarkers[id] = L.marker(pos, { icon: ambIcon }).addTo(map).bindPopup(`
             <div style="font-size: 12px; font-family: sans-serif;">
-              <b>Unit: ${id}</b><br/>
-              Condition: ${amb.condition}<br/>
-              Velocity: ${amb.speed} km/h<br/>
-              Target: ${amb.destination}<br/>
+              <b>${id}</b><br/>
+              ${currentLang === 'bn' ? 'রোগী' : 'Patient'}: ${amb.condition}<br/>
+              ${currentLang === 'bn' ? 'গতি' : 'Speed'}: ${amb.speed} km/h<br/>
+              ${currentLang === 'bn' ? 'গন্তব্য' : 'Destination'}: ${amb.destination}<br/>
               ${sosFlag}
             </div>
           `);
@@ -250,14 +342,14 @@
         if (amb.dest_lat && amb.dest_lon) {
           const destPos = [amb.dest_lat, amb.dest_lon];
           if (!destinationMarkers[id]) {
-            destinationMarkers[id] = L.marker(destPos).addTo(map).bindPopup(`<b>Destination: ${amb.destination}</b>`);
+            destinationMarkers[id] = L.marker(destPos).addTo(map).bindPopup(`<b>${amb.destination}</b>`);
           } else {
             destinationMarkers[id].setLatLng(destPos);
           }
         }
       });
 
-      document.getElementById('corridorCount').textContent = `${corridorsActive} Active`;
+      document.getElementById('corridorCount').textContent = currentLang === 'bn' ? `${corridorsActive} টি সক্রিয়` : `${corridorsActive} Active`;
 
       const container = document.getElementById('nodesContainer');
       const nodeKeys = Object.keys(data.intersections);
@@ -299,20 +391,77 @@
                 ${item.signal}
               </span>
             </div>
+            <div class="flex justify-between items-center pt-1 border-t border-slate-800 text-[10px] mt-1">
+              <span class="${isGreen ? 'text-emerald-400 font-medium' : 'text-slate-500'}">
+                ${currentLang === 'bn' ? 'ক্লিয়ারেন্স' : 'Clearance'}: ${item.clearance_sec || 0}s
+              </span>
+              <button onclick="executeOverride('${item.id}')" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">
+                ${currentLang === 'bn' ? 'সুইচ' : 'Switch'}
+              </button>
+            </div>
           </div>
         `;
       });
 
       document.getElementById('billboardText').textContent = activeBillboardMessage;
-      document.getElementById('violatorCount').textContent = `${totalViolations} Logged`;
+      document.getElementById('violatorCount').textContent = currentLang === 'bn' ? `${totalViolations} টি গাড়ি` : `${totalViolations} Logged`;
+
+      if (data.incident_logs && data.incident_logs.length > 0) {
+        const logBox = document.getElementById('dispatchLogs');
+        logBox.innerHTML = '';
+        data.incident_logs.forEach(l => {
+          logBox.innerHTML += `
+            <div class="p-1 rounded bg-slate-950/60 flex justify-between items-center text-[10px]">
+              <span class="font-medium text-slate-300">${l.unit} ➔ ${l.destination}</span>
+              <span class="text-emerald-400 font-medium">+${l.saved_mins}m ${currentLang === 'bn' ? 'বাঁচানো' : 'Saved'}</span>
+            </div>
+          `;
+        });
+      }
+
+      const alertBox = document.getElementById('alertBanner');
+      if (data.alert) {
+        document.getElementById('alertText').textContent = data.alert;
+        alertBox.classList.remove('hidden');
+      } else {
+        alertBox.classList.add('hidden');
+      }
     };
 
     function generateAuditReportPDF() {
+      if (!window.jspdf) {
+        alert("PDF generator loading...");
+        return;
+      }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.text("TrafficPulse ITS - Preemption Audit Report", 14, 16);
-      doc.save("TrafficPulse_Audit_Report.pdf");
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 25, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.text("TrafficPulse ITS - Automated Preemption Audit Report", 14, 16);
+
+      let summaryData = [
+        ["Active Operational Units", document.getElementById('unitCount').textContent],
+        ["Active Corridor Locks", document.getElementById('corridorCount').textContent],
+        ["Total ANPR Infractions", document.getElementById('violatorCount').textContent],
+        ["V2X Dynamic Status", document.getElementById('billboardText').textContent]
+      ];
+
+      doc.autoTable({
+        startY: 35,
+        head: [["Metric Category", "Current State"]],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59] }
+      });
+
+      doc.save(`TrafficPulse_Audit_${Date.now()}.pdf`);
     }
+
+    window.onload = () => {
+      setLanguage(currentLang);
+    };
   </script>
 </body>
 </html>
